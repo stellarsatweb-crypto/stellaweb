@@ -8,8 +8,13 @@ const roleField = document.getElementById("role-field");
 const extraOptions = document.getElementById("extra-options");
 const formContainer = document.getElementById("form-container");
 
+const idNoInput = document.getElementById("id_no");
+const fullNameInput = document.getElementById("full_name");
+const emailInput = document.getElementById("email");
+
 const passwordInput = document.getElementById("password");
 const confirmPasswordInput = document.getElementById("confirm-password");
+
 const confirmPasswordField = document.getElementById("confirm-password-field");
 
 const togglePassword = document.getElementById("togglePassword");
@@ -34,40 +39,15 @@ async function callAuthApi(body) {
   return data;
 }
 
-/* ================= SVG ICONS ================= */
-const eyeIcon = `
-<svg class="eye-icon" viewBox="0 0 24 24" width="20" height="20" fill="none"
-stroke="currentColor" stroke-width="2" stroke-linecap="round"
-stroke-linejoin="round">
-  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-  <circle cx="12" cy="12" r="3"></circle>
-</svg>
-`;
-
-const eyeOffIcon = `
-<svg class="eye-icon" viewBox="0 0 24 24" width="20" height="20" fill="none"
-stroke="currentColor" stroke-width="2" stroke-linecap="round"
-stroke-linejoin="round">
-  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 
-  18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 
-  11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 
-  1 1-4.24-4.24"></path>
-  <line x1="1" y1="1" x2="23" y2="23"></line>
-</svg>
-`;
-
 /* ================= PASSWORD TOGGLE ================= */
 togglePassword.addEventListener("click", () => {
-  const type = passwordInput.type === "password" ? "text" : "password";
-  passwordInput.type = type;
-  togglePassword.innerHTML = type === "password" ? eyeIcon : eyeOffIcon;
+  passwordInput.type =
+    passwordInput.type === "password" ? "text" : "password";
 });
 
 toggleConfirmPassword.addEventListener("click", () => {
-  const type = confirmPasswordInput.type === "password" ? "text" : "password";
-  confirmPasswordInput.type = type;
-  toggleConfirmPassword.innerHTML =
-    type === "password" ? eyeIcon : eyeOffIcon;
+  confirmPasswordInput.type =
+    confirmPasswordInput.type === "password" ? "text" : "password";
 });
 
 /* ================= SWITCH MODE ================= */
@@ -80,9 +60,13 @@ toggleBtn.addEventListener("click", () => {
     submitBtn.textContent = "Create Account";
     toggleBtn.textContent = "Sign In";
     switchText.textContent = "Already have an account?";
+
+    fullNameInput.parentElement.style.display = "block";
+    emailInput.parentElement.style.display = "block";
     roleField.style.display = "block";
     confirmPasswordField.style.display = "block";
     extraOptions.style.display = "none";
+
     formContainer.classList.add("slide-left");
   } else {
     mode = "signin";
@@ -90,9 +74,13 @@ toggleBtn.addEventListener("click", () => {
     submitBtn.textContent = "Sign In";
     toggleBtn.textContent = "Sign Up";
     switchText.textContent = "Don't have an account?";
+
+    fullNameInput.parentElement.style.display = "none";
+    emailInput.parentElement.style.display = "none";
     roleField.style.display = "none";
     confirmPasswordField.style.display = "none";
     extraOptions.style.display = "flex";
+
     formContainer.classList.add("slide-right");
   }
 
@@ -110,20 +98,29 @@ function validatePassword(password) {
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
 
-  const email = document.getElementById("email").value.trim();
+  const id_no = idNoInput.value.trim();
+  const full_name = fullNameInput?.value.trim();
+  const email = emailInput?.value.trim();
   const password = passwordInput.value;
   const confirmPassword = confirmPasswordInput.value;
   const role = document.getElementById("role").value;
 
   message.textContent = "";
 
+  /* ================= SIGN UP ================= */
   if (mode === "signup") {
-    /* ---------- SIGN UP ---------- */
+
+    // 🔥 FIX: validate id_no too
+    if (!id_no || !full_name || !email || !password || !confirmPassword) {
+      message.style.color = "red";
+      message.textContent = "All fields are required.";
+      return;
+    }
 
     if (!validatePassword(password)) {
       message.style.color = "red";
       message.textContent =
-        "Password must be at least 8 characters and include uppercase, lowercase, number, and special character.";
+        "Password must be 8+ characters with uppercase, lowercase, number and special character.";
       return;
     }
 
@@ -144,6 +141,8 @@ form.addEventListener("submit", async (e) => {
 
       await callAuthApi({
         action: "signup",
+        id_no,
+        full_name,
         email,
         password,
         role,
@@ -154,7 +153,8 @@ form.addEventListener("submit", async (e) => {
         "Account created successfully! You can now sign in.";
 
       form.reset();
-      toggleBtn.click(); // Switch back to Sign In
+      toggleBtn.click();
+
     } catch (err) {
       message.style.color = "red";
       message.textContent = err.message || "Sign up failed.";
@@ -162,22 +162,27 @@ form.addEventListener("submit", async (e) => {
       submitBtn.disabled = false;
     }
 
-  } else {
-    /* ---------- SIGN IN ---------- */
+  }
+
+  /* ================= SIGN IN ================= */
+  else {
+
+    if (!id_no || !password) {
+      message.style.color = "red";
+      message.textContent = "ID Number and password are required.";
+      return;
+    }
 
     try {
       submitBtn.disabled = true;
 
       const data = await callAuthApi({
         action: "signin",
-        email,
+        id_no,
         password,
       });
 
-      // Save user in localStorage
       localStorage.setItem("user", JSON.stringify(data.user));
-
-      // Redirect to dashboard
       window.location.href = "dashboard.html";
 
     } catch (err) {

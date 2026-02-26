@@ -348,6 +348,16 @@ body.dark .sidebar.collapsed .collapse-btn {
   animation: darkGlowPulse 2.5s infinite;
 }
 
+.status-select {
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: none;
+  background: #e5e7eb;
+  cursor: pointer;
+  outline: none;
+  font-size: 13px;
+}
+
 /* ================= DARK MODE LOGO FLOAT + GLOW ================= */
 
 @keyframes logoFloat {

@@ -6,8 +6,41 @@ if (!user) {
   window.location.href = "index.html";
 }
 
-document.getElementById("welcome").textContent =
-  `Welcome back, ${user.email}`;
+/* ================= GLOBAL ================= */
+
+const mainContent = document.getElementById("mainContent");
+
+let tickets = [
+  { id: "TIC-001", site: "SITE-01", issue: "No Signal", priority: "High", status: "In Progress", date: "2026-02-20" },
+  { id: "TIC-002", site: "SITE-07", issue: "Power Failure", priority: "Medium", status: "Pending", date: "2026-02-21" },
+  { id: "TIC-003", site: "SITE-12", issue: "Battery Low", priority: "Low", status: "Completed", date: "2026-02-22" },
+  { id: "TIC-004", site: "SITE-14", issue: "Router Offline", priority: "High", status: "Pending", date: "2026-02-23" },
+  { id: "TIC-005", site: "SITE-22", issue: "Fiber Cut", priority: "High", status: "In Progress", date: "2026-02-24" }
+];
+
+let currentPage = 1;
+const rowsPerPage = 7;
+
+/* ================= SIDEBAR ================= */
+
+document.querySelectorAll(".menu li").forEach(item => {
+  item.addEventListener("click", function () {
+
+    if (this.id === "logout") return;
+
+    document.querySelectorAll(".menu li")
+      .forEach(li => li.classList.remove("active"));
+
+    this.classList.add("active");
+
+    const text = this.innerText.trim();
+
+    if (text === "Dashboard") loadDashboard();
+    if (text === "Problematic Sites") loadProblematicSites();
+    if (text === "Ticket") loadTickets();
+    if (text === "Terminals") loadTerminals();
+  });
+});
 
 /* ================= LOGOUT ================= */
 
@@ -24,49 +57,139 @@ document.getElementById("toggleSidebar")
       .classList.toggle("collapsed");
 });
 
-/* ================= DARK MODE ================= */
+/* ================= TERMINALS ================= */
 
-document.getElementById("darkToggle")
-  .addEventListener("click", () => {
-    document.body.classList.toggle("dark");
-});
+async function loadTerminals() {
 
-/* ================= PAGE SWITCHING ================= */
+  mainContent.innerHTML = `
+  
+    <div class="topbar">
+      <div class="left">
+        <h2>Terminals</h2>
+      </div>
 
-const mainContent = document.getElementById("mainContent");
+      <div class="right">
+        <input type="text" id="terminalSearch" placeholder="Search here">
+      </div>
+    </div>
 
-document.querySelectorAll(".menu li").forEach(item => {
-  item.addEventListener("click", function () {
+    <div style="margin-top:20px; margin-bottom:20px;">
+      <select id="regionSelect" style="padding:10px; border-radius:8px;">
+        <option value="benguet">Benguet</option>
+<option value="ifugao">Ifugao</option>
+<option value="ilocos">Ilocos</option>
+<option value="kalinga">Kalinga</option>
+<option value="pangasinan">Pangasinan</option>
+<option value="quezon">Quezon</option>
+      </select>
 
-    if (this.id === "logout") return;
+      <button id="addBtn" style="
+        margin-left:15px;
+        padding:10px 15px;
+        border:none;
+        background:#3b82f6;
+        color:white;
+        border-radius:8px;
+        cursor:pointer;">
+        + Add
+      </button>
+    </div>
 
-    document.querySelectorAll(".menu li")
-      .forEach(li => li.classList.remove("active"));
+    <div class="table-container">
+      <div class="table-title">
+        Terminal Records
+      </div>
 
-    this.classList.add("active");
+      <div style="overflow-x: auto; width: 100%;">
+    <table border="1" width="100%" cellpadding="8">
+      <thead></thead>
+      <tbody id="terminalTable"></tbody>
+    </table>
+  </div>
+    </div>
+  `;
 
-    const text = this.innerText.trim();
+  fetchTerminals("benguet_inventory");
 
-   if (text === "Dashboard") {
-  loadDashboard();
+  document.getElementById("regionSelect")
+    .addEventListener("change", (e) => {
+      fetchTerminals(e.target.value);
+    });
+
+  document.getElementById("terminalSearch")
+    .addEventListener("input", filterTable);
 }
 
-if (text === "Problematic Sites") {
-  loadProblematicSites();
+async function fetchTerminals(region) {
+  const tbody = document.getElementById("terminalTable");
+  const thead = document.querySelector("table thead");
+
+  tbody.innerHTML = `<tr><td>Loading...</td></tr>`;
+
+  try {
+    const res = await fetch(`/api/terminals/${region}`);
+    if (!res.ok) throw new Error("Server error");
+
+    const data = await res.json();
+
+    if (data.length === 0) {
+      tbody.innerHTML = `<tr><td>No records found</td></tr>`;
+      return;
+    }
+
+    // 🔥 Get all column names dynamically
+    const columns = Object.keys(data[0]);
+
+    // Build table header dynamically
+    thead.innerHTML = `
+      <tr>
+        ${columns.map(col => `<th>${col}</th>`).join("")}
+      </tr>
+    `;
+
+    // Build table rows dynamically
+    tbody.innerHTML = data.map(row => `
+      <tr>
+        ${columns.map(col => `<td>${row[col] ?? ""}</td>`).join("")}
+      </tr>
+    `).join("");
+
+  } catch (err) {
+    console.error(err);
+    tbody.innerHTML = `<tr><td>Error loading data</td></tr>`;
+  }
 }
 
-if (text === "Ticket") {
-  loadTickets();
-}
+function filterTable() {
+  const input = document.getElementById("terminalSearch").value.toLowerCase();
+  const rows = document.querySelectorAll("#terminalTable tr");
 
+  rows.forEach(row => {
+    const text = row.innerText.toLowerCase();
+    row.style.display = text.includes(input) ? "" : "none";
   });
-});
+}
 
 /* ================= DASHBOARD VIEW ================= */
 
 function loadDashboard() {
 
   mainContent.innerHTML = `
+
+    <!-- TOPBAR (Dashboard Only) -->
+    <div class="topbar">
+      <div class="left">
+        <h2>Welcome back, ${user.email}</h2>
+      </div>
+
+      <div class="right">
+        <input type="text" placeholder="Search here">
+        <button id="darkToggle">
+          <i class="ri-moon-line"></i>
+        </button>
+      </div>
+    </div>
+
     <h3 class="section-title">Overview</h3>
 
     <div class="cards">
@@ -125,6 +248,7 @@ function loadDashboard() {
 
     </div>
 
+    <!-- RECENT INCIDENT TABLE -->
     <div class="table-container">
       <div class="table-title">
         <i class="ri-file-list-3-line"></i>
@@ -152,26 +276,33 @@ function loadDashboard() {
           <tr>
             <td>INC-1024</td>
             <td>Province 2</td>
-            <td>No Signal</td>
+            <td>Power Failure</td>
             <td><span class="badge medium">Medium</span></td>
             <td><span class="badge progress">In Progress</span></td>
           </tr>
           <tr>
             <td>INC-1025</td>
             <td>Province 3</td>
-            <td>No Signal</td>
+            <td>Battery Low</td>
             <td><span class="badge low">Low</span></td>
             <td><span class="badge pending">Pending</span></td>
           </tr>
         </tbody>
       </table>
     </div>
+
   `;
+
+  /* Dark Mode Button */
+  document.getElementById("darkToggle")
+    .addEventListener("click", () => {
+      document.body.classList.toggle("dark");
+    });
 
   runCounters();
 }
 
-/* ================= PROBLEMATIC SITES VIEW ================= */
+/* ================= PROBLEMATIC SITES ================= */
 
 function loadProblematicSites() {
 
@@ -192,7 +323,6 @@ function loadProblematicSites() {
             <th>Issue</th>
             <th>Last Reported</th>
             <th>Status</th>
-            <th>Action</th>
           </tr>
         </thead>
         <tbody>
@@ -202,7 +332,6 @@ function loadProblematicSites() {
             <td>No Signal</td>
             <td>2026-02-24</td>
             <td><span class="badge high">Critical</span></td>
-            <td></td>
           </tr>
           <tr>
             <td>SITE-002</td>
@@ -210,7 +339,6 @@ function loadProblematicSites() {
             <td>Power Failure</td>
             <td>2026-02-23</td>
             <td><span class="badge medium">Warning</span></td>
-            <td></td>
           </tr>
         </tbody>
       </table>
@@ -218,25 +346,19 @@ function loadProblematicSites() {
   `;
 }
 
+/* ================= TICKETS ================= */
+
 function loadTickets() {
 
   mainContent.innerHTML = `
     <h3 class="section-title">Ticket Management</h3>
 
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-
-      <button id="sortToggle"
-        style="padding:8px 16px; border:none; border-radius:20px;
-               background:#e5e7eb; cursor:pointer;">
-        Sort: Newest First
-      </button>
-
+    <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
       <button id="openModal"
         style="padding:10px 18px; border:none; border-radius:25px;
                background:#3b82f6; color:white; cursor:pointer;">
         + Create Ticket
       </button>
-
     </div>
 
     <div class="table-container">
@@ -244,7 +366,7 @@ function loadTickets() {
         <i class="ri-ticket-2-line"></i>
         Tickets
       </div>
-
+      
       <table>
         <thead>
           <tr>
@@ -254,7 +376,6 @@ function loadTickets() {
             <th>Priority</th>
             <th>Status</th>
             <th>Date</th>
-            <th></th>
           </tr>
         </thead>
         <tbody id="ticketTable"></tbody>
@@ -271,64 +392,38 @@ function loadTickets() {
              display:none; align-items:center; justify-content:center;">
 
       <div style="background:white; padding:25px; width:400px;
-                  border-radius:15px; box-shadow:0 15px 40px rgba(0,0,0,0.2);">
+                  border-radius:15px;">
 
-        <h3 style="margin-bottom:15px;">Create Ticket</h3>
+        <h3>Create Ticket</h3>
 
         <input id="siteInput" placeholder="Site ID"
-          style="width:100%; padding:10px; margin-bottom:10px;
-                 border-radius:8px; border:1px solid #ddd;" />
+          style="width:100%; padding:10px; margin:10px 0;" />
 
         <input id="issueInput" placeholder="Issue"
-          style="width:100%; padding:10px; margin-bottom:10px;
-                 border-radius:8px; border:1px solid #ddd;" />
+          style="width:100%; padding:10px; margin-bottom:10px;" />
 
         <select id="priorityInput"
-          style="width:100%; padding:10px; margin-bottom:15px;
-                 border-radius:8px; border:1px solid #ddd;">
-          <option value="High">High</option>
-          <option value="Medium">Medium</option>
-          <option value="Low">Low</option>
+          style="width:100%; padding:10px; margin-bottom:15px;">
+          <option>High</option>
+          <option>Medium</option>
+          <option>Low</option>
         </select>
 
-        <div style="display:flex; justify-content:flex-end; gap:10px;">
-          <button id="closeModal"
-            style="padding:8px 14px; border:none; border-radius:8px; background:#ccc;">
-            Cancel
-          </button>
-
-          <button id="saveTicket"
-            style="padding:8px 14px; border:none; border-radius:8px;
-                   background:#16a34a; color:white;">
-            Save
-          </button>
+        <div style="text-align:right;">
+          <button id="closeModal">Cancel</button>
+          <button id="saveTicket">Save</button>
         </div>
 
       </div>
     </div>
   `;
 
-  initTickets();
-}
-
-/* ================= TICKET SYSTEM ================= */
-
-let tickets = [
-  { id: "TIC-001", site: "SITE-01", issue: "No Signal", priority: "High", status: "In Progress", date: "2026-02-20" },
-  { id: "TIC-002", site: "SITE-07", issue: "Power Failure", priority: "Medium", status: "Pending", date: "2026-02-21" },
-  { id: "TIC-003", site: "SITE-12", issue: "Battery Low", priority: "Low", status: "Completed", date: "2026-02-22" },
-  { id: "TIC-004", site: "SITE-14", issue: "Router Offline", priority: "High", status: "Pending", date: "2026-02-23" },
-  { id: "TIC-005", site: "SITE-22", issue: "Fiber Cut", priority: "High", status: "In Progress", date: "2026-02-24" }
-];
-
-let currentPage = 1;
-const rowsPerPage = 4;
-
-function initTickets() {
   renderTable();
   renderPagination();
   setupModal();
 }
+
+/* ================= TABLE RENDER ================= */
 
 function renderTable() {
   const table = document.getElementById("ticketTable");
@@ -343,18 +438,60 @@ function renderTable() {
         <td>${ticket.id}</td>
         <td>${ticket.site}</td>
         <td>${ticket.issue}</td>
-        <td><span class="badge ${getPriorityClass(ticket.priority)}">${ticket.priority}</span></td>
+
+        <!-- PRIORITY WITH COLOR -->
         <td>
-          <select onchange="updateStatus('${ticket.id}', this.value)"
-            style="padding:6px 14px; border-radius:20px; border:none;
-                   background:#e5e7eb; cursor:pointer; outline:none;">
+          <span class="badge ${getPriorityClass(ticket.priority)}">
+            ${ticket.priority}
+          </span>
+        </td>
+
+        <!-- STATUS DROPDOWN -->
+        <td>
+          <select 
+            onchange="updateStatus('${ticket.id}', this.value)"
+            class="status-select">
             ${renderStatusOptions(ticket.status)}
           </select>
         </td>
+
         <td>${ticket.date}</td>
       </tr>
     `;
   });
+}
+
+function renderStatusOptions(current) {
+  const statuses = ["Pending", "In Progress", "Completed"];
+  return statuses.map(status =>
+    `<option value="${status}" 
+      ${status === current ? "selected" : ""}>
+      ${status}
+    </option>`
+  ).join("");
+}
+
+function updateStatus(id, newStatus, element) {
+
+  tickets = tickets.map(ticket =>
+    ticket.id === id
+      ? { ...ticket, status: newStatus }
+      : ticket
+  );
+
+  element.className = "status-select " + getStatusClass(newStatus);
+}
+
+function getStatusClass(status) {
+  if (status === "Completed") return "status-completed";
+  if (status === "In Progress") return "status-progress";
+  return "status-pending";
+}
+
+function getPriorityClass(priority) {
+  if (priority === "High") return "high";
+  if (priority === "Medium") return "medium";
+  return "low";
 }
 
 function renderPagination() {
@@ -368,7 +505,6 @@ function renderPagination() {
       <button onclick="changePage(${i})"
         style="padding:6px 12px; border:none; border-radius:8px;
                background:${i === currentPage ? '#3b82f6' : '#ddd'};
-               color:${i === currentPage ? 'white' : 'black'};
                cursor:pointer;">
         ${i}
       </button>
@@ -382,25 +518,7 @@ function changePage(page) {
   renderPagination();
 }
 
-function updateStatus(id, value) {
-  tickets = tickets.map(t =>
-    t.id === id ? { ...t, status: value } : t
-  );
-  renderTable();
-}
-
-function renderStatusOptions(current) {
-  const statuses = ["Pending", "In Progress", "Completed"];
-  return statuses.map(s =>
-    `<option ${s === current ? "selected" : ""}>${s}</option>`
-  ).join("");
-}
-
-function getPriorityClass(priority) {
-  if (priority === "High") return "high";
-  if (priority === "Medium") return "medium";
-  return "low";
-}
+/* ================= MODAL ================= */
 
 function setupModal() {
   const modal = document.getElementById("ticketModal");
@@ -439,110 +557,26 @@ function setupModal() {
   };
 }
 
-/* STATUS UPDATE */
-function setupStatusUpdate() {
-  document.querySelectorAll(".statusDropdown")
-    .forEach(select => {
-      select.addEventListener("change", function () {
-        const id = this.dataset.id;
-        const ticket = tickets.find(t => t.id === id);
-        ticket.status = this.value;
-      });
-    });
-}
-
-/* SEARCH */
-function setupSearch() {
-  document.getElementById("ticketSearch")
-    .addEventListener("input", () => {
-      currentPage = 1;
-      renderTickets();
-    });
-}
-
-/* PAGINATION */
-function renderPagination(totalRows) {
-
-  const pagination = document.getElementById("pagination");
-  pagination.innerHTML = "";
-
-  const pageCount = Math.ceil(totalRows / rowsPerPage);
-
-  for (let i = 1; i <= pageCount; i++) {
-    const btn = document.createElement("button");
-    btn.textContent = i;
-    btn.className = "collapse-btn";
-    if (i === currentPage) btn.style.background = "#3b82f6";
-
-    btn.addEventListener("click", () => {
-      currentPage = i;
-      renderTickets();
-    });
-
-    pagination.appendChild(btn);
-  }
-}
-
-/* MODAL */
-function setupModal() {
-
-  const modal = document.getElementById("ticketModal");
-
-  document.getElementById("createTicketBtn")
-    .addEventListener("click", () => {
-      modal.style.display = "flex";
-    });
-
-  document.getElementById("closeModal")
-    .addEventListener("click", () => {
-      modal.style.display = "none";
-    });
-
-  document.getElementById("saveTicket")
-    .addEventListener("click", () => {
-
-      const site = document.getElementById("newSite").value;
-      const issue = document.getElementById("newIssue").value;
-      const priority = document.getElementById("newPriority").value;
-
-      if (!site || !issue) return;
-
-      tickets.unshift({
-        id: "TIC-" + Math.floor(Math.random() * 1000),
-        site,
-        issue,
-        priority,
-        status: "Pending"
-      });
-
-      modal.style.display = "none";
-
-      document.getElementById("newSite").value = "";
-      document.getElementById("newIssue").value = "";
-
-      renderTickets();
-    });
-}
-
-/* ================= COUNTER ANIMATION ================= */
+/* ================= COUNTERS ================= */
 
 function runCounters() {
   const counters = document.querySelectorAll(".counter");
 
   counters.forEach(counter => {
-    const updateCount = () => {
-      const target = +counter.getAttribute("data-target");
-      const count = +counter.innerText;
-      const increment = target / 100;
+    const target = +counter.getAttribute("data-target");
+    let count = 0;
 
+    const update = () => {
       if (count < target) {
-        counter.innerText = Math.ceil(count + increment);
-        setTimeout(updateCount, 15);
+        count += Math.ceil(target / 100);
+        counter.innerText = count;
+        setTimeout(update, 15);
       } else {
         counter.innerText = target;
       }
     };
-    updateCount();
+
+    update();
   });
 }
 
