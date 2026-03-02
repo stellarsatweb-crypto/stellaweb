@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const { Pool } = require('pg');
+const ExcelJS = require('exceljs');
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -289,6 +290,106 @@ app.post("/api/problematic-sites", async (req, res) => {
   }
 });
 
+
+/* ================= PROBLEMATIC SITES — EXPORT EXCEL ================= */
+
+app.get("/api/problematic-sites/export-excel", async (req, res) => {
+  try {
+    const result = await pool.query(`SELECT * FROM problematic_sites ORDER BY "Region", "Sitename"`);
+    const rows = result.rows;
+
+    const regions = ["Benguet","Ifugao","Ilocos","Kalinga","Pangasinan","Quezon"];
+    const grouped = {};
+    regions.forEach(r => grouped[r] = []);
+    rows.forEach(row => {
+      const r   = row["Region"] || "";
+      const key = regions.find(k => k.toLowerCase() === r.toLowerCase());
+      if (key) grouped[key].push(row);
+    });
+
+    const wb = new ExcelJS.Workbook();
+    wb.creator = "NOC Dashboard";
+    wb.created = new Date();
+
+    const columns = [
+      "Sitename","Province","Municipality","Region","Status",
+      "Cause (Assume)","Remarks","KAD Name","KAD Visit Date",
+      "Site Online Date","Found Problem / Cause in the Site","Solution"
+    ];
+
+    const statusColors = {
+      "Online":         { bg: "D5F5E3", fg: "1E8449" },
+      "Offline":        { bg: "FADBD8", fg: "922B21" },
+      "In Progress":    { bg: "FEF9E7", fg: "9A7D0A" },
+      "For Monitoring": { bg: "D6EAF8", fg: "1A5276" },
+    };
+
+    const thin = (c) => ({ style: "thin", color: { argb: c } });
+    const hair = (c) => ({ style: "hair", color: { argb: c } });
+
+    for (const region of regions) {
+      const data = grouped[region];
+      const ws   = wb.addWorksheet(region, {
+        properties: { tabColor: { argb: "FF2F4B85" } }
+      });
+
+      ws.addRow(columns);
+      const headerRow = ws.getRow(1);
+      headerRow.height = 28;
+      headerRow.eachCell(cell => {
+        cell.font      = { name: "Cambria", size: 14, bold: true, color: { argb: "FFFFFFFF" } };
+        cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2F4B85" } };
+        cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+        cell.border    = { top: thin("FFFFFFFF"), bottom: thin("FFFFFFFF"), left: thin("FFFFFFFF"), right: thin("FFFFFFFF") };
+      });
+
+      if (data.length === 0) {
+        ws.addRow(["No records for this region."]);
+        ws.mergeCells(2, 1, 2, columns.length);
+        const emptyCell     = ws.getCell("A2");
+        emptyCell.font      = { name: "Cambria", size: 11, italic: true, color: { argb: "FF8899BB" } };
+        emptyCell.alignment = { horizontal: "center", vertical: "middle" };
+        emptyCell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF0F4FA" } };
+      } else {
+        data.forEach((row, i) => {
+          const rowData = columns.map(col => {
+            const val = row[col];
+            if (val instanceof Date) return val.toISOString().split("T")[0];
+            return val ?? "";
+          });
+          const wsRow  = ws.addRow(rowData);
+          wsRow.height = 20;
+          const sc     = statusColors[row["Status"] || ""];
+          const isEven = i % 2 === 1;
+
+          wsRow.eachCell({ includeEmpty: true }, (cell, colNum) => {
+            cell.alignment = { vertical: "middle", wrapText: true };
+            cell.border    = { top: hair("FFCDD8EE"), bottom: hair("FFCDD8EE"), left: hair("FFCDD8EE"), right: hair("FFCDD8EE") };
+            if (columns[colNum - 1] === "Status" && sc) {
+              cell.font = { name: "Cambria", size: 11, bold: true, color: { argb: "FF" + sc.fg } };
+              cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + sc.bg } };
+            } else {
+              cell.font = { name: "Cambria", size: 11 };
+              cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: isEven ? "FFE8EEF8" : "FFFFFFFF" } };
+            }
+          });
+        });
+      }
+
+      const widths = [22, 16, 18, 14, 16, 22, 30, 18, 16, 16, 35, 35];
+      columns.forEach((_, i) => { ws.getColumn(i + 1).width = widths[i] || 20; });
+      ws.views = [{ state: "frozen", ySplit: 1 }];
+    }
+
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="problematic_sites_${Date.now()}.xlsx"`);
+    await wb.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    console.error("Excel export error:", err.message);
+    res.status(500).json({ error: "Failed to export: " + err.message });
+  }
+});
 /* ================= PROBLEMATIC SITES — PUT ================= */
 
 app.put("/api/problematic-sites/:id", async (req, res) => {
@@ -312,6 +413,7 @@ app.put("/api/problematic-sites/:id", async (req, res) => {
     res.status(500).json({ error: "Failed to update: " + err.message });
   }
 });
+
 
 /* ================= PROBLEMATIC SITES — DELETE ================= */
 

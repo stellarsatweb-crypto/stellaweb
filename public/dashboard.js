@@ -667,8 +667,7 @@ const PROB_COLUMNS = [
   { key: "Municipality",                      icon: "ri-building-line",        type: "text" },
   { key: "Region",                            icon: "ri-map-2-line",           type: "select",
     options: ["Benguet", "Ifugao", "Ilocos", "Kalinga", "Pangasinan", "Quezon"] },
-  { key: "Status",                            icon: "ri-checkbox-circle-line", type: "select",
-    options: ["Offline", "Online", "In Progress", "For Monitoring", "Unknown"] },
+  { key: "Status",                            icon: "ri-checkbox-circle-line", type: "text" },
   { key: "Cause (Assume)",                    icon: "ri-question-line",        type: "text" },
   { key: "Remarks",                           icon: "ri-chat-3-line",          type: "textarea" },
   { key: "KAD Name",                          icon: "ri-user-line",            type: "text" },
@@ -720,8 +719,9 @@ async function loadProblematicSites() {
         <span>Problematic Sites Records</span>
         <div class="table-tools">
           <button class="tool-btn" id="probBtnAdd"><i class="ri-add-line"></i> Add</button>
-          <button class="tool-btn" id="probBtnSortFilter"><i class="ri-sliders-h-line"></i> Sort & Filter</button>
+          <button class="tool-btn" id="probBtnSortFilter"><i class="ri-sliders-h-line"></i> Filter & Sort</button>
           <button class="tool-btn" id="probBtnSelect"><i class="ri-checkbox-multiple-line"></i> Select</button>
+          <button class="tool-btn apply-btn" id="probExportExcel"><i class="ri-file-excel-line"></i> Export Excel</button>
         </div>
       </div>
 
@@ -760,7 +760,6 @@ async function loadProblematicSites() {
       <div id="probBulkActions" class="bulk-actions hidden">
         <span id="probSelectedCount">0 rows selected</span>
         <button class="tool-btn danger-btn" id="probDeleteSelected"><i class="ri-delete-bin-line"></i> Delete Selected</button>
-        <button class="tool-btn" id="probExportSelected"><i class="ri-download-line"></i> Export CSV</button>
       </div>
 
       <div class="table-wrapper terminals-table-wrapper">
@@ -918,16 +917,26 @@ async function loadProblematicSites() {
     });
   });
 
-  // Export CSV
-  document.getElementById("probExportSelected").addEventListener("click", () => {
-    if (probSelectedRows.size === 0) { showToast("No rows selected.", "error"); return; }
-    const rows = Array.from(probSelectedRows).sort((a, b) => a - b).map(idx => probFiltered[idx]);
-    const cols = Object.keys(rows[0]);
-    const escape = v => { const s = String(v ?? ""); return s.includes(",") || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s; };
-    const csv = [cols.map(escape).join(","), ...rows.map(r => cols.map(c => escape(r[c])).join(","))].join("\n");
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
-    a.download = `problematic_sites_${Date.now()}.csv`; a.click();
+  // Export Excel (all records, split by region)
+  document.getElementById("probExportExcel").addEventListener("click", async () => {
+    const btn = document.getElementById("probExportExcel");
+    btn.disabled = true;
+    btn.innerHTML = '<i class="ri-loader-4-line spin"></i> Generating…';
+    try {
+      const res = await fetch("/api/problematic-sites/export-excel");
+      if (!res.ok) { showToast("Export failed.", "error"); return; }
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `problematic_sites_${Date.now()}.xlsx`;
+      a.click();
+      showToast("Excel file downloaded.", "success");
+    } catch (err) {
+      showToast("Export error: " + err.message, "error");
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="ri-file-excel-line"></i> Export Excel';
+    }
   });
 
   // Add button
