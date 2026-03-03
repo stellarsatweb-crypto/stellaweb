@@ -1397,7 +1397,7 @@ function loadLetters() {
           <div class="add-fields-grid" style="grid-template-columns:1fr;">
             <div class="add-field-item">
               <label class="add-field-label"><i class="ri-upload-line"></i> Choose File</label>
-              <input id="newFileInput" type="file" class="add-field-input" accept=".pdf,.docx,.xlsx,.doc,.xls">
+              <input id="newFileInput" type="file" class="add-field-input" accept=".pdf,.docx,.xlsx,.doc,.xls,.png,.jpg,.jpeg,.gif,.webp,.mp4,.webm,.mov,.avi,.mkv">
             </div>
             <div class="add-field-item">
               <label class="add-field-label"><i class="ri-user-line"></i> Uploader Name</label>
@@ -1406,7 +1406,7 @@ function loadLetters() {
           </div>
         </div>
         <div class="add-modal-footer">
-          <span class="add-modal-hint" id="lettersFileUploadHint"><i class="ri-information-line"></i> PDF, Word, Excel supported</span>
+          <span class="add-modal-hint" id="lettersFileUploadHint"><i class="ri-information-line"></i> PDF, Word, Excel, Images, Videos supported</span>
           <div class="modal-actions">
             <button class="tool-btn" id="lettersFileModalCancel">Cancel</button>
             <button class="tool-btn apply-btn" id="lettersFileModalConfirm"><i class="ri-upload-line"></i> Upload</button>
@@ -1679,6 +1679,7 @@ function getLettersFileIcon(type) {
   if (t.includes("pdf"))                              return { icon: "ri-file-pdf-2-fill",   color: "#e74c3c" };
   if (t.includes("sheet") || t.includes("xls"))      return { icon: "ri-file-excel-2-fill", color: "#27ae60" };
   if (t.includes("word") || t.includes("doc"))       return { icon: "ri-file-word-2-fill",  color: "#2f4b85" };
+  if (["mp4","webm","mov","avi","mkv","video"].includes(t)) return { icon: "ri-video-fill", color: "#8b5cf6" };
   return { icon: "ri-file-fill", color: "#6b7280" };
 }
 
@@ -1730,6 +1731,7 @@ async function openLettersPreview(id, name, type) {
   const isWord  = ["word","doc","docx"].includes(t) || ["doc","docx"].includes(ext);
   const isExcel = ["excel","xls","xlsx"].includes(t) || ["xls","xlsx"].includes(ext);
   const isImg   = ["image","jpg","jpeg","png","gif","webp"].includes(t) || ["jpg","jpeg","png","gif","webp"].includes(ext);
+  const isVideo = ["video","mp4","webm","mov","avi","mkv"].includes(t) || ["mp4","webm","mov","avi","mkv"].includes(ext);
 
   try {
     if (isPdf) {
@@ -1770,6 +1772,18 @@ async function openLettersPreview(id, name, type) {
 
     } else if (isImg) {
       body.innerHTML = `<div class="letters-preview-img-wrap"><img src="${previewUrl}" class="letters-preview-img" alt="${name}"></div>`;
+
+    } else if (isVideo) {
+      const mimeTypes = { mp4:"video/mp4", webm:"video/webm", mov:"video/quicktime", avi:"video/x-msvideo", mkv:"video/x-matroska" };
+      const mime = mimeTypes[ext] || "video/mp4";
+      body.innerHTML = `
+        <div class="letters-preview-video-wrap">
+          <video class="letters-preview-video" controls autoplay muted>
+            <source src="${previewUrl}" type="${mime}">
+            Your browser does not support video playback.
+          </video>
+        </div>
+      `;
 
     } else {
       showLettersPreviewFallback(body, id);
@@ -1831,13 +1845,16 @@ function bindLettersKebabs(container) {
     btn.addEventListener("click", e => {
       e.stopPropagation();
       closeAllLettersKebabs();
+
+      const type  = btn.dataset.type;
+      const id    = parseInt(btn.dataset.id);
+      const name  = btn.dataset.name;
+      const ftype = btn.dataset.filetype || "";
+
       const menu = document.createElement("div");
       menu.className = "letters-kebab-menu";
-      const type = btn.dataset.type;
-      const id   = parseInt(btn.dataset.id);
-      const name = btn.dataset.name;
+
       if (type === "file") {
-        const ftype = btn.dataset.filetype || "";
         menu.innerHTML = `
           <div class="kebab-item km-preview"><i class="ri-eye-line"></i> Preview</div>
           <div class="kebab-item km-download"><i class="ri-download-line"></i> Download</div>
@@ -1855,8 +1872,23 @@ function bindLettersKebabs(container) {
       }
       menu.querySelector(".km-rename").onclick = () => { closeAllLettersKebabs(); openLettersRename(type, id, name); };
       menu.querySelector(".km-delete").onclick = () => { closeAllLettersKebabs(); openLettersDelete(type, id, name); };
-      btn.style.position = "relative";
-      btn.appendChild(menu);
+
+      // ── Attach to body so it's never clipped by overflow:hidden parents ──
+      document.body.appendChild(menu);
+
+      // Position relative to the button
+      const rect = btn.getBoundingClientRect();
+      const menuW = 160;
+      let left = rect.right - menuW;
+      let top  = rect.bottom + 4;
+
+      // Flip up if it would go off screen bottom
+      if (top + 200 > window.innerHeight) top = rect.top - 200;
+      // Keep within left edge
+      if (left < 8) left = 8;
+
+      menu.style.cssText = `position:fixed;top:${top}px;left:${left}px;min-width:${menuW}px;z-index:9999;`;
+
       setTimeout(() => document.addEventListener("click", closeAllLettersKebabs, { once: true }), 0);
     });
   });
@@ -1989,7 +2021,7 @@ function openLettersFileModal() {
   const modal = document.getElementById("lettersFileModal");
   document.getElementById("newFileInput").value = "";
   document.getElementById("newFileUploader").value = user?.full_name || user?.email || "";
-  document.getElementById("lettersFileUploadHint").innerHTML = '<i class="ri-information-line"></i> PDF, Word, Excel supported';
+  document.getElementById("lettersFileUploadHint").innerHTML = '<i class="ri-information-line"></i> PDF, Word, Excel, Images, Videos supported';
   modal.classList.remove("hidden");
   const close = () => modal.classList.add("hidden");
   document.getElementById("lettersFileModalClose").onclick = close;

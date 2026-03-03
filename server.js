@@ -457,7 +457,7 @@ const lettersUpload = multer ? multer({
       cb(null, `${Date.now()}_${base}${ext}`);
     }
   }),
-  limits: { fileSize: 20 * 1024 * 1024 } // 20 MB
+  limits: { fileSize: 500 * 1024 * 1024 } // 500 MB
 }) : null;
 
 /* ── GET /api/letters/folders ── */
@@ -588,7 +588,7 @@ app.post('/api/letters/files', (req, res, next) => {
     const file_name = req.file.originalname;
     // Derive a short type from the file extension so it fits in VARCHAR(50)
     const ext = require('path').extname(file_name).toLowerCase().replace('.', '');
-    const mimeMap = { pdf: 'pdf', doc: 'word', docx: 'word', xls: 'excel', xlsx: 'excel', txt: 'text', png: 'image', jpg: 'image', jpeg: 'image' };
+    const mimeMap = { pdf: 'pdf', doc: 'word', docx: 'word', xls: 'excel', xlsx: 'excel', txt: 'text', png: 'image', jpg: 'image', jpeg: 'image', gif: 'image', webp: 'image', mp4: 'video', webm: 'video', mov: 'video', avi: 'video', mkv: 'video' };
     const file_type = mimeMap[ext] || ext || req.file.mimetype.split('/')[1]?.slice(0, 50) || 'file';
     try {
       const result = await pool.query(
@@ -680,6 +680,11 @@ app.get('/api/letters/files/:id/preview', async (req, res) => {
       '.doc':  'application/msword',
       '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       '.xls':  'application/vnd.ms-excel',
+      '.mp4':  'video/mp4',
+      '.webm': 'video/webm',
+      '.mov':  'video/quicktime',
+      '.avi':  'video/x-msvideo',
+      '.mkv':  'video/x-matroska',
     };
     const mime = mimeTypes[ext] || 'application/octet-stream';
     res.setHeader('Content-Type', mime);

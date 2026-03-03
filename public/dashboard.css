@@ -43,10 +43,41 @@ body.dark .logo-img:hover { filter: drop-shadow(0 0 50px rgba(59,130,246,1)); tr
   display: flex; align-items: center; gap: 12px;
   padding: 11px 12px; border-radius: 10px; cursor: pointer;
   margin-bottom: 6px; font-size: 14.5px; white-space: nowrap; overflow: hidden;
+  position: relative;
+  transition: background 0.2s;
 }
-.menu li:hover, .menu li.active { background: rgba(255,255,255,0.15); }
+.menu li:hover { background: rgba(255,255,255,0.12); border-radius: 10px; }
+
+/* Active item — white pill that bleeds to the right edge with concave curves */
+.menu li.active {
+  background: #f0f4ff;
+  color: #1e3a6e;
+  border-radius: 30px;
+  margin-right: 12px;
+  margin-left: 8px;
+  padding-right: 20px;
+  overflow: visible;
+}
+body.dark .menu li.active {
+  background: #1e293b;
+  color: #93c5fd;
+}
+
+/* Remove concave curves — not needed with full pill shape */
+.menu li.active::before,
+.menu li.active::after {
+  display: none;
+}
 .sidebar.collapsed .menu span { display: none; }
 .sidebar.collapsed .menu li { justify-content: center; }
+.sidebar.collapsed .menu li.active {
+  margin-left: 12px;
+  margin-right: 12px;
+  padding-left: 0;
+  padding-right: 0;
+  justify-content: center;
+  border-radius: 30px;
+}
 
 .collapse-btn {
   position: absolute; bottom: 20px; left: 20px;
@@ -646,9 +677,6 @@ body.dark .letters-kebab:hover { background: #334155; color: #93c5fd; }
 
 /* ── Kebab dropdown menu ── */
 .letters-kebab-menu {
-  position: absolute;
-  top: 32px;
-  right: 0;
   background: white;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
@@ -963,3 +991,20 @@ body.dark .letters-excel-table tr:nth-child(even) td { background: #162032; }
 body.dark .letters-excel-tabs { background: #0f172a; border-color: #334155; }
 body.dark .letters-excel-tab { background: #1e293b; color: #94a3b8; border-color: #334155; }
 body.dark .letters-excel-tab.active { background: #1e3a6e; color: #93c5fd; }
+
+/* ── Video preview ── */
+.letters-preview-video-wrap {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  padding: 16px;
+}
+.letters-preview-video {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 8px;
+  outline: none;
+}
