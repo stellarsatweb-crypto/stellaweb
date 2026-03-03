@@ -434,6 +434,263 @@ app.delete("/api/problematic-sites", async (req, res) => {
   }
 });
 
+/* ================= LETTERS — SETUP ================= */
+
+// Check multer is available, otherwise provide instructions
+let multer;
+try {
+  multer = require('multer');
+} catch(e) {
+  console.warn('multer not installed — file uploads will fail. Run: npm install multer');
+}
+
+const lettersUpload = multer ? multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      const dir = require('path').join(__dirname, 'public', 'uploads', 'letters');
+      require('fs').mkdirSync(dir, { recursive: true });
+      cb(null, dir);
+    },
+    filename: (req, file, cb) => {
+      const ext  = require('path').extname(file.originalname);
+      const base = require('path').basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, '_');
+      cb(null, `${Date.now()}_${base}${ext}`);
+    }
+  }),
+  limits: { fileSize: 20 * 1024 * 1024 } // 20 MB
+}) : null;
+
+/* ── GET /api/letters/folders ── */
+app.get('/api/letters/folders', async (req, res) => {
+  try {
+    // ?parent_id=N for subfolders, no param = root folders (parent_id IS NULL)
+    const rawParent = req.query.parent_id;
+    const parentId  = (rawParent !== undefined && rawParent !== '') ? parseInt(rawParent) : null;
+    if (parentId !== null && isNaN(parentId)) return res.status(400).json({ error: 'Invalid parent_id' });
+
+    let result;
+    if (parentId !== null) {
+      // Subfolders of a specific folder — exclude the folder itself to prevent loops
+      result = await pool.query(`
+        SELECT f.id, f.folder_name, f.parent_id, f.created_at,
+               (SELECT COUNT(*)::int FROM files fi WHERE fi.folder_id = f.id) +
+               (SELECT COUNT(*)::int FROM folders sf WHERE sf.parent_id = f.id) AS file_count
+          FROM folders f
+         WHERE f.parent_id = $1
+           AND f.id != $1
+         ORDER BY f.folder_name
+      `, [parentId]);
+    } else {
+      // Root folders only
+      result = await pool.query(`
+        SELECT f.id, f.folder_name, f.parent_id, f.created_at,
+               (SELECT COUNT(*)::int FROM files fi WHERE fi.folder_id = f.id) +
+               (SELECT COUNT(*)::int FROM folders sf WHERE sf.parent_id = f.id) AS file_count
+          FROM folders f
+         WHERE f.parent_id IS NULL
+         ORDER BY f.folder_name
+      `);
+    }
+    res.json(result.rows);
+  } catch (err) {
+    console.error('GET folders error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ── POST /api/letters/folders ── */
+app.post('/api/letters/folders', async (req, res) => {
+  const { folder_name, parent_id = null } = req.body || {};
+  if (!folder_name?.trim()) return res.status(400).json({ error: 'folder_name is required' });
+  try {
+    const result = await pool.query(
+      `INSERT INTO folders (folder_name, parent_id) VALUES ($1, $2) RETURNING *`,
+      [folder_name.trim(), parent_id]
+    );
+    res.status(201).json({ success: true, folder: result.rows[0] });
+  } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ error: 'A folder with that name already exists' });
+    console.error('POST folders error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ── PUT /api/letters/folders/:id ── */
+app.put('/api/letters/folders/:id', async (req, res) => {
+  const id = parseInt(req.params.id);
+  const { folder_name } = req.body || {};
+  if (!folder_name?.trim()) return res.status(400).json({ error: 'folder_name is required' });
+  try {
+    const result = await pool.query(
+      `UPDATE folders SET folder_name = $1 WHERE id = $2 RETURNING *`,
+      [folder_name.trim(), id]
+    );
+    if (!result.rowCount) return res.status(404).json({ error: 'Folder not found' });
+    res.json({ success: true, folder: result.rows[0] });
+  } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ error: 'A folder with that name already exists' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ── DELETE /api/letters/folders/:id ── */
+app.delete('/api/letters/folders/:id', async (req, res) => {
+  const id = parseInt(req.params.id);
+  try {
+    // Files are CASCADE deleted by the DB constraint
+    const result = await pool.query(`DELETE FROM folders WHERE id = $1`, [id]);
+    if (!result.rowCount) return res.status(404).json({ error: 'Folder not found' });
+    res.json({ success: true, deleted: result.rowCount });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ── GET /api/letters/folders/:id/files ── */
+app.get('/api/letters/folders/:id/files', async (req, res) => {
+  const id = parseInt(req.params.id);
+  const q  = req.query.q ? `%${req.query.q}%` : null;
+  try {
+    const result = await pool.query(
+      `SELECT * FROM files
+        WHERE folder_id = $1 ${q ? 'AND file_name ILIKE $2' : ''}
+        ORDER BY created_at DESC`,
+      q ? [id, q] : [id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ── GET /api/letters/files/recent ── */
+app.get('/api/letters/files/recent', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT * FROM files ORDER BY created_at DESC LIMIT 8`
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ── POST /api/letters/files  (multipart upload) ── */
+app.post('/api/letters/files', (req, res, next) => {
+  if (!lettersUpload) return res.status(500).json({ error: 'multer not installed — run: npm install multer' });
+  lettersUpload.single('file')(req, res, async (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+    const { folder_id, uploader_name } = req.body || {};
+    if (!folder_id) return res.status(400).json({ error: 'folder_id is required' });
+    if (!req.file)  return res.status(400).json({ error: 'No file received' });
+    const file_path = '/uploads/letters/' + req.file.filename;
+    const file_size = req.file.size;
+    const file_name = req.file.originalname;
+    // Derive a short type from the file extension so it fits in VARCHAR(50)
+    const ext = require('path').extname(file_name).toLowerCase().replace('.', '');
+    const mimeMap = { pdf: 'pdf', doc: 'word', docx: 'word', xls: 'excel', xlsx: 'excel', txt: 'text', png: 'image', jpg: 'image', jpeg: 'image' };
+    const file_type = mimeMap[ext] || ext || req.file.mimetype.split('/')[1]?.slice(0, 50) || 'file';
+    try {
+      const result = await pool.query(
+        `INSERT INTO files (folder_id, uploader_name, file_name, file_path, file_size, file_type, last_access)
+         VALUES ($1,$2,$3,$4,$5,$6,NOW()) RETURNING *`,
+        [parseInt(folder_id), uploader_name || null, file_name, file_path, file_size, file_type]
+      );
+      res.status(201).json({ success: true, file: result.rows[0] });
+    } catch (dbErr) {
+      res.status(500).json({ error: dbErr.message });
+    }
+  });
+});
+
+/* ── PUT /api/letters/files/:id ── */
+app.put('/api/letters/files/:id', async (req, res) => {
+  const id = parseInt(req.params.id);
+  const { file_name } = req.body || {};
+  if (!file_name?.trim()) return res.status(400).json({ error: 'file_name is required' });
+  try {
+    const result = await pool.query(
+      `UPDATE files SET file_name = $1 WHERE id = $2 RETURNING *`,
+      [file_name.trim(), id]
+    );
+    if (!result.rowCount) return res.status(404).json({ error: 'File not found' });
+    res.json({ success: true, file: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ── DELETE /api/letters/files/:id ── */
+app.delete('/api/letters/files/:id', async (req, res) => {
+  const id = parseInt(req.params.id);
+  try {
+    const { rows } = await pool.query(`SELECT file_path FROM files WHERE id = $1`, [id]);
+    if (!rows.length) return res.status(404).json({ error: 'File not found' });
+    await pool.query(`DELETE FROM files WHERE id = $1`, [id]);
+    // Remove physical file
+    try {
+      const fs       = require('fs');
+      const filePath = require('path').join(__dirname, 'public', rows[0].file_path);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    } catch { /* file already gone */ }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ── GET /api/letters/files/:id/download ── */
+app.get('/api/letters/files/:id/download', async (req, res) => {
+  const id = parseInt(req.params.id);
+  try {
+    const { rows } = await pool.query(`SELECT * FROM files WHERE id = $1`, [id]);
+    if (!rows.length) return res.status(404).json({ error: 'File not found' });
+    const f        = rows[0];
+    const filePath = require('path').join(__dirname, 'public', f.file_path);
+    // Update last_access
+    await pool.query(`UPDATE files SET last_access = NOW() WHERE id = $1`, [id]);
+    res.download(filePath, f.file_name, err => {
+      if (err && !res.headersSent) res.status(404).json({ error: 'File not found on disk' });
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ── GET /api/letters/files/:id/preview ── */
+app.get('/api/letters/files/:id/preview', async (req, res) => {
+  const id = parseInt(req.params.id);
+  try {
+    const { rows } = await pool.query(`SELECT * FROM files WHERE id = $1`, [id]);
+    if (!rows.length) return res.status(404).json({ error: 'File not found' });
+    const f        = rows[0];
+    const filePath = require('path').join(__dirname, 'public', f.file_path);
+    const fs       = require('fs');
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found on disk' });
+    // Set correct content-type for inline display
+    const ext = require('path').extname(f.file_name).toLowerCase();
+    const mimeTypes = {
+      '.pdf':  'application/pdf',
+      '.png':  'image/png',
+      '.jpg':  'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.gif':  'image/gif',
+      '.webp': 'image/webp',
+      '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      '.doc':  'application/msword',
+      '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      '.xls':  'application/vnd.ms-excel',
+    };
+    const mime = mimeTypes[ext] || 'application/octet-stream';
+    res.setHeader('Content-Type', mime);
+    res.setHeader('Content-Disposition', `inline; filename="${f.file_name}"`);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    fs.createReadStream(filePath).pipe(res);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 /* ================= START SERVER ================= */
 
 const server = app.listen(PORT, () => {

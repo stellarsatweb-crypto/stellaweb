@@ -33,6 +33,7 @@ document.querySelectorAll(".menu li").forEach(item => {
     if (text === "Problematic Sites") loadProblematicSites();
     if (text === "Ticket") loadTickets();
     if (text === "Terminals") loadTerminals();
+    if (text === "Letters") loadLetters();
   });
 });
 
@@ -1308,6 +1309,715 @@ function setupModal() {
     modal.classList.add("hidden");
     document.getElementById("siteInput").value = ""; document.getElementById("issueInput").value = "";
     currentPage = 1; renderTable(); renderPagination();
+  };
+}
+
+
+/* ================= LETTERS ================= */
+
+let lettersFolderStack = []; // stack of { id, name } — empty = root
+let lettersSearchQuery  = "";
+
+// helpers
+function lettersCurrentFolder() { return lettersFolderStack.length ? lettersFolderStack[lettersFolderStack.length - 1] : null; }
+function lettersCurrentFolderId() { const f = lettersCurrentFolder(); return f ? f.id : null; }
+
+function loadLetters() {
+  lettersFolderStack = [];
+  lettersSearchQuery  = "";
+
+  mainContent.innerHTML = `
+    <div class="letters-topbar">
+      <h2 class="letters-title"><i class="ri-mail-line"></i> Letters</h2>
+      <div class="letters-search-box">
+        <i class="ri-search-line"></i>
+        <input type="text" id="lettersSearch" placeholder="Search here">
+      </div>
+    </div>
+
+    <div class="letters-layout">
+
+      <!-- Recent Files sidebar -->
+      <div class="letters-sidebar-card">
+        <div class="letters-sidebar-header">Recent Files</div>
+        <div class="letters-recent-list" id="lettersRecentList">
+          <div class="letters-empty-recent"><i class="ri-loader-4-line spin"></i></div>
+        </div>
+      </div>
+
+      <!-- Main area -->
+      <div class="letters-main-card">
+        <div class="letters-main-toolbar">
+          <div class="letters-breadcrumb" id="lettersBreadcrumb"></div>
+          <div class="letters-main-actions">
+            <button class="tool-btn apply-btn" id="lettersNewBtn"><i class="ri-add-line"></i> New</button>
+          </div>
+        </div>
+        <div class="letters-content" id="lettersContent">
+          <div class="letters-empty"><i class="ri-loader-4-line spin"></i></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- New Folder Modal -->
+    <div id="lettersFolderModal" class="modal-overlay hidden">
+      <div class="modal-box add-modal-box">
+        <div class="add-modal-header">
+          <div class="add-modal-icon"><i class="ri-folder-add-line"></i></div>
+          <div class="add-modal-title"><h3>New Folder</h3><p>Create a new folder to organise your letters.</p></div>
+          <button class="modal-close-btn" id="lettersFolderModalClose"><i class="ri-close-line"></i></button>
+        </div>
+        <div class="add-modal-body">
+          <div class="add-fields-grid" style="grid-template-columns:1fr;">
+            <div class="add-field-item">
+              <label class="add-field-label"><i class="ri-folder-line"></i> Folder Name</label>
+              <input id="newFolderName" type="text" class="add-field-input" placeholder="e.g. Relocation" autocomplete="off">
+            </div>
+          </div>
+        </div>
+        <div class="add-modal-footer">
+          <span class="add-modal-hint"><i class="ri-information-line"></i> Folder name must be unique</span>
+          <div class="modal-actions">
+            <button class="tool-btn" id="lettersFolderModalCancel">Cancel</button>
+            <button class="tool-btn apply-btn" id="lettersFolderModalConfirm"><i class="ri-save-line"></i> Create</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Upload File Modal -->
+    <div id="lettersFileModal" class="modal-overlay hidden">
+      <div class="modal-box add-modal-box">
+        <div class="add-modal-header">
+          <div class="add-modal-icon"><i class="ri-file-upload-line"></i></div>
+          <div class="add-modal-title"><h3>Upload File</h3><p>Add a new letter or document to this folder.</p></div>
+          <button class="modal-close-btn" id="lettersFileModalClose"><i class="ri-close-line"></i></button>
+        </div>
+        <div class="add-modal-body">
+          <div class="add-fields-grid" style="grid-template-columns:1fr;">
+            <div class="add-field-item">
+              <label class="add-field-label"><i class="ri-upload-line"></i> Choose File</label>
+              <input id="newFileInput" type="file" class="add-field-input" accept=".pdf,.docx,.xlsx,.doc,.xls">
+            </div>
+            <div class="add-field-item">
+              <label class="add-field-label"><i class="ri-user-line"></i> Uploader Name</label>
+              <input id="newFileUploader" type="text" class="add-field-input" placeholder="Your name" autocomplete="off">
+            </div>
+          </div>
+        </div>
+        <div class="add-modal-footer">
+          <span class="add-modal-hint" id="lettersFileUploadHint"><i class="ri-information-line"></i> PDF, Word, Excel supported</span>
+          <div class="modal-actions">
+            <button class="tool-btn" id="lettersFileModalCancel">Cancel</button>
+            <button class="tool-btn apply-btn" id="lettersFileModalConfirm"><i class="ri-upload-line"></i> Upload</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rename Modal -->
+    <div id="lettersRenameModal" class="modal-overlay hidden">
+      <div class="modal-box" style="width:400px;padding:28px;">
+        <h3 style="margin-bottom:16px;display:flex;align-items:center;gap:8px;color:#1e3a6e;font-size:17px;"><i class="ri-edit-line"></i> Rename</h3>
+        <div class="form-group">
+          <label>New Name</label>
+          <input id="renameInput" type="text" class="add-field-input" style="width:100%;" autocomplete="off">
+        </div>
+        <div class="modal-actions">
+          <button class="tool-btn" id="lettersRenameCancel">Cancel</button>
+          <button class="tool-btn apply-btn" id="lettersRenameConfirm"><i class="ri-save-line"></i> Rename</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Preview Modal -->
+    <div id="lettersPreviewModal" class="modal-overlay hidden">
+      <div class="letters-preview-box">
+        <div class="letters-preview-header">
+          <div class="letters-preview-title">
+            <i class="ri-file-line" id="lettersPreviewIcon"></i>
+            <span id="lettersPreviewName">Document</span>
+          </div>
+          <div class="letters-preview-header-actions">
+            <a class="tool-btn" id="lettersPreviewDownload" target="_blank" title="Download">
+              <i class="ri-download-line"></i> Download
+            </a>
+            <button class="modal-close-btn" id="lettersPreviewClose" style="position:static;"><i class="ri-close-line"></i></button>
+          </div>
+        </div>
+        <div class="letters-preview-body" id="lettersPreviewBody">
+          <div class="letters-empty"><i class="ri-loader-4-line spin"></i><p>Loading preview…</p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Confirm Delete Modal -->
+    <div id="lettersDeleteModal" class="modal-overlay hidden">
+      <div class="modal-box confirm-modal-box">
+        <div class="confirm-modal-icon danger-icon"><i class="ri-delete-bin-2-line"></i></div>
+        <h3 class="confirm-modal-title">Delete</h3>
+        <p class="confirm-modal-msg" id="lettersDeleteMsg">Are you sure?</p>
+        <div class="confirm-modal-actions">
+          <button class="tool-btn" id="lettersDeleteCancel">Cancel</button>
+          <button class="tool-btn danger-btn" id="lettersDeleteConfirm"><i class="ri-delete-bin-line"></i> Delete</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("lettersSearch").addEventListener("input", function () {
+    lettersSearchQuery = this.value.trim();
+    renderLettersContent();
+  });
+
+  document.getElementById("lettersNewBtn").addEventListener("click", () => {
+    openLettersNewChoiceMenu(document.getElementById("lettersNewBtn"));
+  });
+
+  fetchLettersRecent();
+  fetchLettersContent();
+}
+
+/* ── API helpers ── */
+
+async function fetchLettersRecent() {
+  try {
+    const res  = await fetch("/api/letters/files/recent");
+    const data = await res.json();
+    renderLettersRecent(data);
+  } catch { renderLettersRecent([]); }
+}
+
+async function fetchLettersContent() {
+  renderLettersBreadcrumb();
+  const content = document.getElementById("lettersContent");
+  content.innerHTML = `<div class="letters-empty"><i class="ri-loader-4-line spin"></i></div>`;
+  const fid = lettersCurrentFolderId();
+  try {
+    if (fid === null) {
+      // Root: only folders (no files at root level)
+      const res  = await fetch("/api/letters/folders");
+      const data = await res.json();
+      renderLettersFolders(data, null);
+    } else {
+      // Inside folder: fetch subfolders + files in parallel
+      const q = lettersSearchQuery ? `?q=${encodeURIComponent(lettersSearchQuery)}` : "";
+      const [subfoldersRes, filesRes] = await Promise.all([
+        fetch(`/api/letters/folders?parent_id=${fid}`),
+        fetch(`/api/letters/folders/${fid}/files${q}`)
+      ]);
+      const subfolders = await subfoldersRes.json();
+      const files      = await filesRes.json();
+      renderLettersFolderContents(subfolders, files, fid);
+    }
+  } catch (err) {
+    content.innerHTML = `<div class="letters-empty"><i class="ri-error-warning-line"></i><p>Error loading data</p></div>`;
+  }
+}
+
+/* ── Render helpers ── */
+
+function renderLettersBreadcrumb() {
+  const bc = document.getElementById("lettersBreadcrumb");
+  if (!bc) return;
+
+  const crumbs = [
+    `<span class="crumb ${lettersFolderStack.length === 0 ? "crumb-active" : "crumb-link"}" data-depth="-1"><i class="ri-home-4-line"></i> Home</span>`
+  ];
+  lettersFolderStack.forEach((f, i) => {
+    crumbs.push(`<i class="ri-arrow-right-s-line crumb-sep"></i>`);
+    const isLast = i === lettersFolderStack.length - 1;
+    crumbs.push(`<span class="crumb ${isLast ? "crumb-active" : "crumb-link"}" data-depth="${i}">${f.name}</span>`);
+  });
+  bc.innerHTML = crumbs.join("");
+
+  bc.querySelectorAll(".crumb-link").forEach(el => {
+    el.addEventListener("click", () => {
+      const depth = parseInt(el.dataset.depth);
+      if (depth === -1) {
+        lettersFolderStack = [];
+      } else {
+        lettersFolderStack = lettersFolderStack.slice(0, depth + 1);
+      }
+      lettersSearchQuery = "";
+      const si = document.getElementById("lettersSearch");
+      if (si) si.value = "";
+      fetchLettersContent();
+    });
+  });
+}
+
+function renderLettersRecent(files) {
+  const list = document.getElementById("lettersRecentList");
+  if (!list) return;
+  if (!files.length) {
+    list.innerHTML = `<div class="letters-empty-recent">No files yet</div>`;
+    return;
+  }
+  list.innerHTML = files.map(f => {
+    const fi = getLettersFileIcon(f.file_type);
+    return `
+      <div class="letters-recent-item" title="${f.file_name}">
+        <i class="${fi.icon}" style="color:${fi.color};font-size:18px;flex-shrink:0;"></i>
+        <span class="letters-recent-name">${f.file_name}</span>
+      </div>
+    `;
+  }).join("");
+}
+
+function buildFolderCardsHTML(list) {
+  const folderIcons = ["ri-map-pin-2-fill","ri-tools-fill","ri-file-text-fill","ri-team-fill","ri-settings-5-fill","ri-folder-fill"];
+  return list.map((f, i) => `
+    <div class="letters-folder-card" data-id="${f.id}" data-name="${f.folder_name}">
+      <div class="letters-folder-actions">
+        <button class="letters-kebab" data-type="folder" data-id="${f.id}" data-name="${f.folder_name}"><i class="ri-more-2-fill"></i></button>
+      </div>
+      <div class="letters-folder-icon"><i class="${folderIcons[i % folderIcons.length]}"></i></div>
+      <div class="letters-folder-name">${f.folder_name}</div>
+      <div class="letters-folder-count">${f.file_count ?? 0} item${(f.file_count ?? 0) !== 1 ? "s" : ""}</div>
+    </div>
+  `).join("");
+}
+
+function bindFolderCardClicks(container) {
+  container.querySelectorAll(".letters-folder-card").forEach(card => {
+    card.addEventListener("click", e => {
+      if (e.target.closest(".letters-kebab")) return;
+      const folderId = parseInt(card.dataset.id);
+      // Prevent pushing the same folder that's already current
+      if (lettersCurrentFolderId() === folderId) return;
+      lettersFolderStack.push({ id: folderId, name: card.dataset.name });
+      fetchLettersContent();
+    });
+  });
+}
+
+function renderLettersFolders(folders) {
+  const content = document.getElementById("lettersContent");
+  const q = lettersSearchQuery.toLowerCase();
+  let list = folders;
+  if (q) list = folders.filter(f => f.folder_name.toLowerCase().includes(q));
+
+  if (!list.length) {
+    content.innerHTML = `<div class="letters-empty"><i class="ri-folder-open-line"></i><p>${q ? "No folders match your search" : "No folders yet — click <strong>New</strong> to create one."}</p></div>`;
+    return;
+  }
+
+  content.innerHTML = `<div class="letters-folders-grid">${buildFolderCardsHTML(list)}</div>`;
+  bindFolderCardClicks(content);
+  bindLettersKebabs(content);
+}
+
+function renderLettersFolderContents(subfolders, files, parentId) {
+  const content = document.getElementById("lettersContent");
+  const q = lettersSearchQuery.toLowerCase();
+  let filteredFolders = q ? subfolders.filter(f => f.folder_name.toLowerCase().includes(q)) : subfolders;
+
+  let html = "";
+
+  if (filteredFolders.length) {
+    html += `<div class="letters-section-label"><i class="ri-folder-line"></i> Folders</div>`;
+    html += `<div class="letters-folders-grid">${buildFolderCardsHTML(filteredFolders)}</div>`;
+  }
+
+  if (files.length) {
+    html += `<div class="letters-section-label" style="margin-top:${filteredFolders.length ? "24px" : "0"}"><i class="ri-file-line"></i> Files</div>`;
+    html += `<div class="letters-files-list">${files.map(f => {
+      const fi   = getLettersFileIcon(f.file_type);
+      const size = formatFileSize(f.file_size);
+      const date = f.created_at ? new Date(f.created_at).toLocaleDateString() : "";
+      return `
+        <div class="letters-file-row" data-id="${f.id}">
+          <i class="${fi.icon}" style="color:${fi.color};font-size:24px;flex-shrink:0;"></i>
+          <div class="letters-file-info">
+            <div class="letters-file-name">${f.file_name}</div>
+            <div class="letters-file-meta">${[f.uploader_name, size, date].filter(Boolean).join(" · ")}</div>
+          </div>
+          <button class="letters-kebab" data-type="file" data-id="${f.id}" data-name="${f.file_name}" data-filetype="${f.file_type}"><i class="ri-more-2-fill"></i></button>
+        </div>
+      `;
+    }).join("")}</div>`;
+  }
+
+  if (!filteredFolders.length && !files.length) {
+    html = `<div class="letters-empty"><i class="ri-folder-open-line"></i><p>This folder is empty.<br>Click <strong>New</strong> to add a subfolder or file.</p></div>`;
+  }
+
+  content.innerHTML = html;
+  bindFolderCardClicks(content);
+  bindLettersKebabs(content);
+}
+
+function renderLettersFiles(files) {
+  const content = document.getElementById("lettersContent");
+  if (!files.length) {
+    content.innerHTML = `<div class="letters-empty"><i class="ri-file-add-line"></i><p>${lettersSearchQuery ? "No files match your search" : "No files yet — click <strong>New</strong> to upload one."}</p></div>`;
+    return;
+  }
+  content.innerHTML = `<div class="letters-files-list">${files.map(f => {
+    const fi   = getLettersFileIcon(f.file_type);
+    const size = f.file_size ? formatFileSize(f.file_size) : "";
+    const date = f.created_at ? new Date(f.created_at).toLocaleDateString() : "";
+    return `
+      <div class="letters-file-row" data-id="${f.id}">
+        <i class="${fi.icon}" style="color:${fi.color};font-size:24px;flex-shrink:0;"></i>
+        <div class="letters-file-info">
+          <div class="letters-file-name">${f.file_name}</div>
+          <div class="letters-file-meta">${[f.uploader_name, size, date].filter(Boolean).join(" · ")}</div>
+        </div>
+        <button class="letters-kebab" data-type="file" data-id="${f.id}" data-name="${f.file_name}" data-filetype="${f.file_type}"><i class="ri-more-2-fill"></i></button>
+      </div>
+    `;
+  }).join("")}</div>`;
+
+  bindLettersKebabs(content);
+
+}
+
+function getLettersFileIcon(type) {
+  const t = (type || "").toLowerCase();
+  if (t.includes("pdf"))                              return { icon: "ri-file-pdf-2-fill",   color: "#e74c3c" };
+  if (t.includes("sheet") || t.includes("xls"))      return { icon: "ri-file-excel-2-fill", color: "#27ae60" };
+  if (t.includes("word") || t.includes("doc"))       return { icon: "ri-file-word-2-fill",  color: "#2f4b85" };
+  return { icon: "ri-file-fill", color: "#6b7280" };
+}
+
+function formatFileSize(bytes) {
+  if (!bytes) return "";
+  if (bytes < 1024)       return bytes + " B";
+  if (bytes < 1048576)    return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / 1048576).toFixed(1) + " MB";
+}
+
+/* ── Kebab menu ── */
+
+// Dynamically load a script once
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+    const s = document.createElement("script");
+    s.src = src; s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+async function openLettersPreview(id, name, type) {
+  const modal = document.getElementById("lettersPreviewModal");
+  const body  = document.getElementById("lettersPreviewBody");
+  const title = document.getElementById("lettersPreviewName");
+  const icon  = document.getElementById("lettersPreviewIcon");
+  const dl    = document.getElementById("lettersPreviewDownload");
+
+  title.textContent = name;
+  dl.href = `/api/letters/files/${id}/download`;
+
+  const fi = getLettersFileIcon(type);
+  icon.className = fi.icon;
+  icon.style.color = fi.color;
+
+  body.innerHTML = `<div class="letters-empty"><i class="ri-loader-4-line spin"></i><p>Loading preview…</p></div>`;
+  modal.classList.remove("hidden");
+
+  const close = () => { modal.classList.add("hidden"); body.innerHTML = ""; };
+  document.getElementById("lettersPreviewClose").onclick = close;
+  modal.onclick = e => { if (e.target === modal) close(); };
+
+  const t   = (type || "").toLowerCase();
+  const ext = name.split(".").pop().toLowerCase();
+  const previewUrl = `/api/letters/files/${id}/preview`;
+
+  const isPdf   = t === "pdf"  || ext === "pdf";
+  const isWord  = ["word","doc","docx"].includes(t) || ["doc","docx"].includes(ext);
+  const isExcel = ["excel","xls","xlsx"].includes(t) || ["xls","xlsx"].includes(ext);
+  const isImg   = ["image","jpg","jpeg","png","gif","webp"].includes(t) || ["jpg","jpeg","png","gif","webp"].includes(ext);
+
+  try {
+    if (isPdf) {
+      const blob = await fetch(previewUrl).then(r => { if (!r.ok) throw new Error(); return r.blob(); });
+      body.innerHTML = `<iframe src="${URL.createObjectURL(blob)}" class="letters-preview-frame" title="${name}"></iframe>`;
+
+    } else if (isWord) {
+      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js");
+      const ab     = await fetch(previewUrl).then(r => { if (!r.ok) throw new Error(); return r.arrayBuffer(); });
+      const result = await mammoth.convertToHtml({ arrayBuffer: ab });
+      body.innerHTML = `<div class="letters-preview-docx">${result.value || "<p><em>Document appears to be empty.</em></p>"}</div>`;
+
+    } else if (isExcel) {
+      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js");
+      const ab       = await fetch(previewUrl).then(r => { if (!r.ok) throw new Error(); return r.arrayBuffer(); });
+      const workbook = XLSX.read(ab, { type: "array" });
+
+      const tabs = workbook.SheetNames.length > 1
+        ? `<div class="letters-excel-tabs">${workbook.SheetNames.map((s, i) =>
+            `<button class="letters-excel-tab${i === 0 ? " active" : ""}" data-sheet="${s}">${s}</button>`
+          ).join("")}</div>`
+        : "";
+
+      const firstHtml = XLSX.utils.sheet_to_html(workbook.Sheets[workbook.SheetNames[0]], { editable: false });
+      body.innerHTML = `${tabs}<div class="letters-preview-excel" id="lettersExcelContent">${firstHtml}</div>`;
+
+      styleExcelTable(body);
+
+      body.querySelectorAll(".letters-excel-tab").forEach(btn => {
+        btn.addEventListener("click", () => {
+          body.querySelectorAll(".letters-excel-tab").forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+          document.getElementById("lettersExcelContent").innerHTML =
+            XLSX.utils.sheet_to_html(workbook.Sheets[btn.dataset.sheet], { editable: false });
+          styleExcelTable(body);
+        });
+      });
+
+    } else if (isImg) {
+      body.innerHTML = `<div class="letters-preview-img-wrap"><img src="${previewUrl}" class="letters-preview-img" alt="${name}"></div>`;
+
+    } else {
+      showLettersPreviewFallback(body, id);
+    }
+  } catch (err) {
+    console.error("Preview error:", err);
+    showLettersPreviewFallback(body, id);
+  }
+}
+
+function styleExcelTable(container) {
+  const table = container.querySelector("table");
+  if (!table) return;
+  table.classList.add("letters-excel-table");
+  const firstRow = table.querySelector("tr");
+  if (firstRow) firstRow.classList.add("excel-header-row");
+}
+
+function showLettersPreviewFallback(body, id, msg) {
+  body.innerHTML = `
+    <div class="letters-preview-fallback">
+      <i class="ri-file-line"></i>
+      <p>${msg || "Preview is not available for this file type."}</p>
+      <a class="tool-btn apply-btn" href="/api/letters/files/${id}/download" target="_blank">
+        <i class="ri-download-line"></i> Download to view
+      </a>
+    </div>
+  `;
+}
+
+
+function openLettersNewChoiceMenu(anchor) {
+  // Close any existing
+  document.querySelectorAll(".letters-new-choice-menu").forEach(m => m.remove());
+
+  const menu = document.createElement("div");
+  menu.className = "letters-new-choice-menu letters-kebab-menu";
+  menu.style.cssText = "position:absolute;z-index:200;min-width:170px;";
+  menu.innerHTML = `
+    <div class="kebab-item choice-subfolder"><i class="ri-folder-add-line"></i> New Subfolder</div>
+    <div class="kebab-item choice-file"><i class="ri-file-upload-line"></i> Upload File</div>
+  `;
+  menu.querySelector(".choice-subfolder").onclick = () => { menu.remove(); openLettersFolderModal(); };
+  menu.querySelector(".choice-file").onclick      = () => { menu.remove(); openLettersFileModal(); };
+
+  anchor.style.position = "relative";
+  anchor.appendChild(menu);
+
+  // Position it below the anchor
+  const rect = anchor.getBoundingClientRect();
+  menu.style.top   = anchor.offsetHeight + 4 + "px";
+  menu.style.right = "0";
+
+  setTimeout(() => document.addEventListener("click", () => menu.remove(), { once: true }), 0);
+}
+
+function bindLettersKebabs(container) {
+  container.querySelectorAll(".letters-kebab").forEach(btn => {
+    btn.addEventListener("click", e => {
+      e.stopPropagation();
+      closeAllLettersKebabs();
+      const menu = document.createElement("div");
+      menu.className = "letters-kebab-menu";
+      const type = btn.dataset.type;
+      const id   = parseInt(btn.dataset.id);
+      const name = btn.dataset.name;
+      if (type === "file") {
+        const ftype = btn.dataset.filetype || "";
+        menu.innerHTML = `
+          <div class="kebab-item km-preview"><i class="ri-eye-line"></i> Preview</div>
+          <div class="kebab-item km-download"><i class="ri-download-line"></i> Download</div>
+          <div class="kebab-divider"></div>
+          <div class="kebab-item km-rename"><i class="ri-edit-line"></i> Rename</div>
+          <div class="kebab-item kebab-danger km-delete"><i class="ri-delete-bin-line"></i> Delete</div>
+        `;
+        menu.querySelector(".km-preview").onclick  = () => { closeAllLettersKebabs(); openLettersPreview(id, name, ftype); };
+        menu.querySelector(".km-download").onclick = () => { closeAllLettersKebabs(); window.location.href = `/api/letters/files/${id}/download`; };
+      } else {
+        menu.innerHTML = `
+          <div class="kebab-item km-rename"><i class="ri-edit-line"></i> Rename</div>
+          <div class="kebab-item kebab-danger km-delete"><i class="ri-delete-bin-line"></i> Delete</div>
+        `;
+      }
+      menu.querySelector(".km-rename").onclick = () => { closeAllLettersKebabs(); openLettersRename(type, id, name); };
+      menu.querySelector(".km-delete").onclick = () => { closeAllLettersKebabs(); openLettersDelete(type, id, name); };
+      btn.style.position = "relative";
+      btn.appendChild(menu);
+      setTimeout(() => document.addEventListener("click", closeAllLettersKebabs, { once: true }), 0);
+    });
+  });
+}
+
+function closeAllLettersKebabs() {
+  document.querySelectorAll(".letters-kebab-menu").forEach(m => m.remove());
+}
+
+/* ── Rename ── */
+
+function openLettersRename(type, id, currentName) {
+  const modal = document.getElementById("lettersRenameModal");
+  document.getElementById("renameInput").value = currentName;
+  modal.classList.remove("hidden");
+  const close = () => modal.classList.add("hidden");
+  document.getElementById("lettersRenameCancel").onclick = close;
+  modal.onclick = e => { if (e.target === modal) close(); };
+  document.getElementById("lettersRenameConfirm").onclick = async () => {
+    const newName = document.getElementById("renameInput").value.trim();
+    if (!newName) { showToast("Name cannot be empty.", "error"); return; }
+    const btn = document.getElementById("lettersRenameConfirm");
+    btn.disabled = true; btn.innerHTML = '<i class="ri-loader-4-line spin"></i>';
+    try {
+      const url    = type === "folder" ? `/api/letters/folders/${id}` : `/api/letters/files/${id}`;
+      const body   = type === "folder" ? { folder_name: newName } : { file_name: newName };
+      const res    = await fetch(url, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const result = await res.json();
+      if (!res.ok) { showToast("Rename failed: " + (result.error || "Unknown"), "error"); return; }
+      close();
+      const curFolder = lettersCurrentFolder();
+      if (type === "folder" && curFolder?.id === id) curFolder.name = newName;
+      fetchLettersContent();
+      fetchLettersRecent();
+      showToast("Renamed successfully.", "success");
+    } catch { showToast("Network error.", "error"); }
+    finally { btn.disabled = false; btn.innerHTML = '<i class="ri-save-line"></i> Rename'; }
+  };
+}
+
+/* ── Delete ── */
+
+function openLettersDelete(type, id, name) {
+  const modal = document.getElementById("lettersDeleteModal");
+  document.getElementById("lettersDeleteMsg").innerHTML =
+    `Delete <strong>${name}</strong>${type === "folder" ? " and all its files" : ""}? This cannot be undone.`;
+  modal.classList.remove("hidden");
+  const close = () => modal.classList.add("hidden");
+  document.getElementById("lettersDeleteCancel").onclick = close;
+  modal.onclick = e => { if (e.target === modal) close(); };
+  document.getElementById("lettersDeleteConfirm").onclick = async () => {
+    const btn = document.getElementById("lettersDeleteConfirm");
+    btn.disabled = true; btn.innerHTML = '<i class="ri-loader-4-line spin"></i>';
+    try {
+      const url = type === "folder" ? `/api/letters/folders/${id}` : `/api/letters/files/${id}`;
+      const res = await fetch(url, { method: "DELETE" });
+      const result = await res.json();
+      if (!res.ok) { showToast("Delete failed: " + (result.error || "Unknown"), "error"); return; }
+      close();
+      const curFolder = lettersCurrentFolder();
+      if (type === "folder" && curFolder?.id === id) lettersFolderStack.pop();
+      fetchLettersContent();
+      fetchLettersRecent();
+      showToast("Deleted.", "success");
+    } catch { showToast("Network error.", "error"); }
+    finally { btn.disabled = false; btn.innerHTML = '<i class="ri-delete-bin-line"></i> Delete'; }
+  };
+}
+
+/* ── Create folder ── */
+
+function openLettersNewChoiceMenu(anchorEl) {
+  document.querySelectorAll(".letters-new-menu").forEach(m => m.remove());
+
+  const insideFolder = lettersCurrentFolder() !== null;
+
+  const menu = document.createElement("div");
+  menu.className = "letters-new-menu";
+  menu.innerHTML = `
+    <div class="letters-new-item" id="newChoiceFolder"><i class="ri-folder-add-line"></i> New Folder</div>
+    ${insideFolder ? `<div class="letters-new-item" id="newChoiceFile"><i class="ri-file-upload-line"></i> Upload File</div>` : ""}
+  `;
+
+  anchorEl.style.position = "relative";
+  anchorEl.appendChild(menu);
+
+  menu.querySelector("#newChoiceFolder").onclick = (e) => {
+    e.stopPropagation();
+    menu.remove();
+    openLettersFolderModal();
+  };
+  if (insideFolder) {
+    menu.querySelector("#newChoiceFile").onclick = (e) => {
+      e.stopPropagation();
+      menu.remove();
+      openLettersFileModal();
+    };
+  }
+
+  setTimeout(() => document.addEventListener("click", () => menu.remove(), { once: true }), 0);
+}
+
+function openLettersFolderModal() {
+  const modal = document.getElementById("lettersFolderModal");
+  document.getElementById("newFolderName").value = "";
+  modal.classList.remove("hidden");
+  const close = () => modal.classList.add("hidden");
+  document.getElementById("lettersFolderModalClose").onclick = close;
+  document.getElementById("lettersFolderModalCancel").onclick = close;
+  modal.onclick = e => { if (e.target === modal) close(); };
+  document.getElementById("lettersFolderModalConfirm").onclick = async () => {
+    const name = document.getElementById("newFolderName").value.trim();
+    if (!name) { showToast("Please enter a folder name.", "error"); return; }
+    const btn = document.getElementById("lettersFolderModalConfirm");
+    btn.disabled = true; btn.innerHTML = '<i class="ri-loader-4-line spin"></i> Creating…';
+    try {
+      const parent_id = lettersCurrentFolderId();
+      const res    = await fetch("/api/letters/folders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ folder_name: name, parent_id }) });
+      const result = await res.json();
+      if (!res.ok) { showToast("Failed: " + (result.error || "Unknown"), "error"); return; }
+      close(); fetchLettersContent(); showToast("Folder created.", "success");
+    } catch { showToast("Network error.", "error"); }
+    finally { btn.disabled = false; btn.innerHTML = '<i class="ri-save-line"></i> Create'; }
+  };
+}
+
+/* ── Upload file ── */
+
+function openLettersFileModal() {
+  const modal = document.getElementById("lettersFileModal");
+  document.getElementById("newFileInput").value = "";
+  document.getElementById("newFileUploader").value = user?.full_name || user?.email || "";
+  document.getElementById("lettersFileUploadHint").innerHTML = '<i class="ri-information-line"></i> PDF, Word, Excel supported';
+  modal.classList.remove("hidden");
+  const close = () => modal.classList.add("hidden");
+  document.getElementById("lettersFileModalClose").onclick = close;
+  document.getElementById("lettersFileModalCancel").onclick = close;
+  modal.onclick = e => { if (e.target === modal) close(); };
+
+  document.getElementById("newFileInput").onchange = function () {
+    const f = this.files[0];
+    if (f) document.getElementById("lettersFileUploadHint").innerHTML = `<i class="ri-file-line"></i> ${f.name} (${formatFileSize(f.size)})`;
+  };
+
+  document.getElementById("lettersFileModalConfirm").onclick = async () => {
+    const fileInput    = document.getElementById("newFileInput");
+    const uploaderName = document.getElementById("newFileUploader").value.trim();
+    if (!fileInput.files[0]) { showToast("Please choose a file.", "error"); return; }
+    const btn = document.getElementById("lettersFileModalConfirm");
+    btn.disabled = true; btn.innerHTML = '<i class="ri-loader-4-line spin"></i> Uploading…';
+    try {
+      const formData = new FormData();
+      formData.append("file", fileInput.files[0]);
+      formData.append("uploader_name", uploaderName);
+      formData.append("folder_id", lettersCurrentFolder().id);
+      const res    = await fetch("/api/letters/files", { method: "POST", body: formData });
+      const result = await res.json();
+      if (!res.ok) { showToast("Upload failed: " + (result.error || "Unknown"), "error"); return; }
+      close(); fetchLettersContent(); fetchLettersRecent(); showToast("File uploaded.", "success");
+    } catch { showToast("Network error.", "error"); }
+    finally { btn.disabled = false; btn.innerHTML = '<i class="ri-upload-line"></i> Upload'; }
   };
 }
 
