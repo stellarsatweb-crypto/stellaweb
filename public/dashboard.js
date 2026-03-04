@@ -1315,23 +1315,29 @@ function setupModal() {
 
 /* ================= LETTERS ================= */
 
-let lettersFolderStack = []; // stack of { id, name } — empty = root
-let lettersSearchQuery  = "";
+let lettersFolderStack    = []; // stack of { id, name } — empty = root
+let lettersSearchQuery    = "";
+let lettersFilterType     = "all";
+let lettersFilterUploader = "";
+let lettersFilterModified = "all";
 
 // helpers
 function lettersCurrentFolder() { return lettersFolderStack.length ? lettersFolderStack[lettersFolderStack.length - 1] : null; }
 function lettersCurrentFolderId() { const f = lettersCurrentFolder(); return f ? f.id : null; }
 
 function loadLetters() {
-  lettersFolderStack = [];
-  lettersSearchQuery  = "";
+  lettersFolderStack    = [];
+  lettersSearchQuery    = "";
+  lettersFilterType     = "all";
+  lettersFilterUploader = "";
+  lettersFilterModified = "all";
 
   mainContent.innerHTML = `
     <div class="letters-topbar">
       <h2 class="letters-title"><i class="ri-mail-line"></i> Letters</h2>
       <div class="letters-search-box">
         <i class="ri-search-line"></i>
-        <input type="text" id="lettersSearch" placeholder="Search here">
+        <input type="text" id="lettersSearch" placeholder="Search files and folders…">
       </div>
     </div>
 
@@ -1353,6 +1359,42 @@ function loadLetters() {
             <button class="tool-btn apply-btn" id="lettersNewBtn"><i class="ri-add-line"></i> New</button>
           </div>
         </div>
+
+        <!-- Filter bar -->
+        <div class="letters-filter-bar" id="lettersFilterBar">
+          <div class="letters-filter-chip" id="chipType">
+            <span class="chip-label">Type</span>
+            <i class="ri-arrow-down-s-line chip-arrow"></i>
+            <div class="letters-chip-dropdown" id="dropType">
+              <div class="chip-option chip-opt-type active" data-val="all">All types</div>
+              <div class="chip-option chip-opt-type" data-val="pdf"><i class="ri-file-pdf-2-fill" style="color:#e74c3c"></i> PDF</div>
+              <div class="chip-option chip-opt-type" data-val="word"><i class="ri-file-word-2-fill" style="color:#2f4b85"></i> Word</div>
+              <div class="chip-option chip-opt-type" data-val="excel"><i class="ri-file-excel-2-fill" style="color:#27ae60"></i> Excel</div>
+              <div class="chip-option chip-opt-type" data-val="image"><i class="ri-image-fill" style="color:#f59e0b"></i> Image</div>
+              <div class="chip-option chip-opt-type" data-val="video"><i class="ri-video-fill" style="color:#8b5cf6"></i> Video</div>
+            </div>
+          </div>
+          <div class="letters-filter-chip" id="chipUploader">
+            <span class="chip-label">Uploader</span>
+            <i class="ri-arrow-down-s-line chip-arrow"></i>
+            <div class="letters-chip-dropdown" id="dropUploader">
+              <div class="chip-option chip-opt-uploader active" data-val="">Anyone</div>
+            </div>
+          </div>
+          <div class="letters-filter-chip" id="chipModified">
+            <span class="chip-label">Modified</span>
+            <i class="ri-arrow-down-s-line chip-arrow"></i>
+            <div class="letters-chip-dropdown" id="dropModified">
+              <div class="chip-option chip-opt-modified active" data-val="all">Any time</div>
+              <div class="chip-option chip-opt-modified" data-val="today">Today</div>
+              <div class="chip-option chip-opt-modified" data-val="week">This week</div>
+              <div class="chip-option chip-opt-modified" data-val="month">This month</div>
+              <div class="chip-option chip-opt-modified" data-val="year">This year</div>
+            </div>
+          </div>
+          <button class="letters-filter-clear hidden" id="lettersClearFilters"><i class="ri-close-line"></i> Clear</button>
+        </div>
+
         <div class="letters-content" id="lettersContent">
           <div class="letters-empty"><i class="ri-loader-4-line spin"></i></div>
         </div>
@@ -1467,7 +1509,9 @@ function loadLetters() {
 
   document.getElementById("lettersSearch").addEventListener("input", function () {
     lettersSearchQuery = this.value.trim();
-    renderLettersContent();
+    lettersFilterType     = document.getElementById("lettersFilterType")?.value || "all";
+    lettersFilterUploader = document.getElementById("lettersFilterUploader")?.value.trim() || "";
+    fetchLettersContent();
   });
 
   document.getElementById("lettersNewBtn").addEventListener("click", () => {
@@ -1476,9 +1520,151 @@ function loadLetters() {
 
   fetchLettersRecent();
   fetchLettersContent();
+  bindLettersFilterChips();
+  updateLettersClearBtn();
 }
 
 /* ── API helpers ── */
+
+function bindLettersFilterChips() {
+  const closeAllDrops = () =>
+    document.querySelectorAll(".letters-chip-dropdown").forEach(d => d.classList.remove("open"));
+
+  ["chipType","chipUploader","chipModified"].forEach(chipId => {
+    const chip = document.getElementById(chipId);
+    if (!chip) return;
+    chip.addEventListener("click", e => {
+      e.stopPropagation();
+      const drop = chip.querySelector(".letters-chip-dropdown");
+      const wasOpen = drop.classList.contains("open");
+      closeAllDrops();
+      if (!wasOpen) { drop.classList.add("open"); positionChipDropdown(chip, drop); }
+    });
+  });
+
+  document.addEventListener("click", closeAllDrops);
+
+  // Type
+  document.getElementById("dropType")?.addEventListener("click", e => {
+    const opt = e.target.closest(".chip-opt-type"); if (!opt) return;
+    e.stopPropagation();
+    document.querySelectorAll(".chip-opt-type").forEach(o => o.classList.remove("active"));
+    opt.classList.add("active");
+    lettersFilterType = opt.dataset.val;
+    const chip = document.getElementById("chipType");
+    chip.querySelector(".chip-label").textContent = lettersFilterType === "all" ? "Type" : opt.textContent.trim();
+    chip.classList.toggle("chip-active", lettersFilterType !== "all");
+    closeAllDrops(); updateLettersClearBtn(); fetchLettersContent();
+  });
+
+  // Uploader
+  document.getElementById("dropUploader")?.addEventListener("click", e => {
+    const opt = e.target.closest(".chip-opt-uploader"); if (!opt) return;
+    e.stopPropagation();
+    document.querySelectorAll(".chip-opt-uploader").forEach(o => o.classList.remove("active"));
+    opt.classList.add("active");
+    lettersFilterUploader = opt.dataset.val;
+    const chip = document.getElementById("chipUploader");
+    chip.querySelector(".chip-label").textContent = lettersFilterUploader || "Uploader";
+    chip.classList.toggle("chip-active", lettersFilterUploader !== "");
+    closeAllDrops(); updateLettersClearBtn(); fetchLettersContent();
+  });
+
+  // Modified
+  document.getElementById("dropModified")?.addEventListener("click", e => {
+    const opt = e.target.closest(".chip-opt-modified"); if (!opt) return;
+    e.stopPropagation();
+    document.querySelectorAll(".chip-opt-modified").forEach(o => o.classList.remove("active"));
+    opt.classList.add("active");
+    lettersFilterModified = opt.dataset.val;
+    const chip = document.getElementById("chipModified");
+    chip.querySelector(".chip-label").textContent = lettersFilterModified === "all" ? "Modified" : opt.textContent.trim();
+    chip.classList.toggle("chip-active", lettersFilterModified !== "all");
+    closeAllDrops(); updateLettersClearBtn(); fetchLettersContent();
+  });
+
+  // Clear
+  document.getElementById("lettersClearFilters")?.addEventListener("click", () => {
+    lettersFilterType = "all"; lettersFilterUploader = ""; lettersFilterModified = "all"; lettersSearchQuery = "";
+    const si = document.getElementById("lettersSearch"); if (si) si.value = "";
+    // Reset chip labels
+    document.getElementById("chipType").querySelector(".chip-label").textContent = "Type";
+    document.getElementById("chipUploader").querySelector(".chip-label").textContent = "Uploader";
+    document.getElementById("chipModified").querySelector(".chip-label").textContent = "Modified";
+    // Remove active state from chips
+    ["chipType","chipUploader","chipModified"].forEach(id => document.getElementById(id)?.classList.remove("chip-active"));
+    // Reset active option highlights
+    document.querySelectorAll(".chip-opt-type").forEach(o => o.classList.toggle("active", o.dataset.val === "all"));
+    document.querySelectorAll(".chip-opt-uploader").forEach(o => o.classList.toggle("active", o.dataset.val === ""));
+    document.querySelectorAll(".chip-opt-modified").forEach(o => o.classList.toggle("active", o.dataset.val === "all"));
+    updateLettersClearBtn();
+    fetchLettersContent();
+  });
+}
+
+function positionChipDropdown(chip, drop) {
+  const rect = chip.getBoundingClientRect();
+  drop.style.position = "fixed";
+  drop.style.top  = (rect.bottom + 4) + "px";
+  drop.style.left = rect.left + "px";
+  drop.style.zIndex = "9999";
+}
+
+function updateLettersClearBtn() {
+  const btn = document.getElementById("lettersClearFilters");
+  if (!btn) return;
+  const active = lettersFilterType !== "all" || lettersFilterUploader !== "" || lettersFilterModified !== "all" || lettersSearchQuery !== "";
+  btn.classList.toggle("hidden", !active);
+}
+
+function populateUploaderChip(files) {
+  const drop = document.getElementById("dropUploader");
+  if (!drop) return;
+  const names    = [...new Set(files.map(f => f.uploader_name).filter(Boolean))];
+  const current  = lettersFilterUploader;
+  const anyActive = current === "" ? " active" : "";
+  drop.innerHTML  = `<div class="chip-option chip-opt-uploader${anyActive}" data-val="">Anyone</div>`;
+  names.forEach(name => {
+    const el = document.createElement("div");
+    el.className = "chip-option chip-opt-uploader" + (current === name ? " active" : "");
+    el.dataset.val = name;
+    el.textContent = name;
+    drop.appendChild(el);
+  });
+}
+
+function applyLettersFileFilters(files) {
+  let list = [...files];
+  if (lettersSearchQuery) {
+    const q = lettersSearchQuery.toLowerCase();
+    list = list.filter(f => f.file_name.toLowerCase().includes(q) || (f.uploader_name || "").toLowerCase().includes(q));
+  }
+  if (lettersFilterType !== "all") {
+    list = list.filter(f => {
+      const t = (f.file_type || "").toLowerCase();
+      const e = (f.file_name || "").split(".").pop().toLowerCase();
+      if (lettersFilterType === "pdf")   return t === "pdf"   || e === "pdf";
+      if (lettersFilterType === "word")  return ["word","doc","docx"].includes(t) || ["doc","docx"].includes(e);
+      if (lettersFilterType === "excel") return ["excel","xls","xlsx"].includes(t) || ["xls","xlsx"].includes(e);
+      if (lettersFilterType === "image") return ["image","jpg","jpeg","png","gif","webp"].includes(t);
+      if (lettersFilterType === "video") return ["video","mp4","webm","mov","avi","mkv"].includes(t);
+      return true;
+    });
+  }
+  if (lettersFilterUploader) list = list.filter(f => f.uploader_name === lettersFilterUploader);
+  if (lettersFilterModified !== "all") {
+    const now = new Date();
+    const cutoffs = {
+      today: new Date(now.getFullYear(), now.getMonth(), now.getDate()),
+      week:  new Date(now - 7  * 86400000),
+      month: new Date(now.getFullYear(), now.getMonth(), 1),
+      year:  new Date(now.getFullYear(), 0, 1),
+    };
+    const cutoff = cutoffs[lettersFilterModified];
+    if (cutoff) list = list.filter(f => new Date(f.created_at) >= cutoff);
+  }
+  return list;
+}
 
 async function fetchLettersRecent() {
   try {
@@ -1612,6 +1798,8 @@ function renderLettersFolderContents(subfolders, files, parentId) {
   const content = document.getElementById("lettersContent");
   const q = lettersSearchQuery.toLowerCase();
   let filteredFolders = q ? subfolders.filter(f => f.folder_name.toLowerCase().includes(q)) : subfolders;
+  // Hide folders when a specific file type is selected
+  if (lettersFilterType !== "all") filteredFolders = [];
 
   let html = "";
 
@@ -1620,9 +1808,13 @@ function renderLettersFolderContents(subfolders, files, parentId) {
     html += `<div class="letters-folders-grid">${buildFolderCardsHTML(filteredFolders)}</div>`;
   }
 
-  if (files.length) {
+  // Apply all active filters
+  const filteredFiles = applyLettersFileFilters(files);
+  populateUploaderChip(files);
+
+  if (filteredFiles.length) {
     html += `<div class="letters-section-label" style="margin-top:${filteredFolders.length ? "24px" : "0"}"><i class="ri-file-line"></i> Files</div>`;
-    html += `<div class="letters-files-list">${files.map(f => {
+    html += `<div class="letters-files-list">${filteredFiles.map(f => {
       const fi   = getLettersFileIcon(f.file_type);
       const size = formatFileSize(f.file_size);
       const date = f.created_at ? new Date(f.created_at).toLocaleDateString() : "";
@@ -1639,7 +1831,7 @@ function renderLettersFolderContents(subfolders, files, parentId) {
     }).join("")}</div>`;
   }
 
-  if (!filteredFolders.length && !files.length) {
+  if (!filteredFolders.length && !filteredFiles.length) {
     html = `<div class="letters-empty"><i class="ri-folder-open-line"></i><p>This folder is empty.<br>Click <strong>New</strong> to add a subfolder or file.</p></div>`;
   }
 

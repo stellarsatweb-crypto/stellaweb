@@ -563,6 +563,28 @@ app.get('/api/letters/folders/:id/files', async (req, res) => {
   }
 });
 
+/* ── GET /api/letters/uploaders ── */
+app.get('/api/letters/uploaders', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT DISTINCT uploader_name FROM files WHERE uploader_name IS NOT NULL ORDER BY uploader_name`
+    );
+    res.json(result.rows.map(r => r.uploader_name));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ── GET /api/letters/uploaders ── */
+app.get('/api/letters/uploaders', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT DISTINCT uploader_name FROM files WHERE uploader_name IS NOT NULL ORDER BY uploader_name`
+    );
+    res.json(result.rows.map(r => r.uploader_name));
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 /* ── GET /api/letters/files/recent ── */
 app.get('/api/letters/files/recent', async (req, res) => {
   try {
