@@ -1233,3 +1233,364 @@ body.dark .letters-filter-clear { background: #450a0a; border-color: #7f1d1d; co
 .letters-paste-btn.hidden { display: none; }
 body.dark .letters-paste-btn { background: #052e16; border-color: #166534; color: #4ade80; }
 body.dark .letters-paste-btn:hover { background: #14532d; }
+
+/* ================= TICKET ================= */
+
+.tk-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  gap: 16px;
+}
+.tk-title-row { display: flex; flex-direction: column; gap: 2px; }
+.tk-title { font-size: 28px; font-weight: 700; color: #1e293b; margin: 0; display: flex; align-items: center; gap: 10px; }
+.tk-title i { color: #2f4b85; }
+.tk-subtitle { font-size: 13px; font-weight: 600; color: #2f4b85; margin-left: 2px; }
+
+.tk-search-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: white;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 24px;
+  padding: 10px 18px;
+  min-width: 320px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.tk-search-box i { color: #94a3b8; font-size: 18px; }
+.tk-search-box input { border: none; outline: none; background: transparent; font-size: 14px; color: #334155; width: 100%; }
+.tk-search-box input::placeholder { color: #94a3b8; }
+body.dark .tk-search-box { background: #1e293b; border-color: #334155; }
+body.dark .tk-search-box input { color: #e2e8f0; }
+
+.tk-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.tk-kebab-btn { padding: 8px 10px; }
+
+/* Layout */
+.tk-layout {
+  display: grid;
+  grid-template-columns: 1fr 200px;
+  gap: 16px;
+  align-items: start;
+}
+
+/* Main card */
+.tk-main-card {
+  background: white;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+body.dark .tk-main-card { background: #1e293b; border-color: #334155; }
+
+/* Tabs bar */
+.tk-tabs-bar {
+  display: flex;
+  gap: 4px;
+  padding: 14px 20px;
+  border-bottom: 1px solid #f1f5f9;
+}
+body.dark .tk-tabs-bar { border-bottom-color: #334155; }
+
+.tk-dropdown-wrap { position: relative; }
+.tk-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  background: white;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.tk-tab-btn:hover { border-color: #2f4b85; color: #2f4b85; }
+body.dark .tk-tab-btn { background: #1e293b; border-color: #334155; color: #94a3b8; }
+
+.tk-tab-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+  padding: 6px 0;
+  min-width: 160px;
+  z-index: 999;
+}
+.tk-tab-menu.hidden { display: none; }
+body.dark .tk-tab-menu { background: #1e293b; border-color: #334155; }
+
+.tk-tab-opt {
+  padding: 9px 16px;
+  font-size: 13px;
+  color: #374151;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.tk-tab-opt:hover { background: #f0f4ff; }
+.tk-tab-opt.active { color: #2f4b85; font-weight: 600; background: #eff6ff; }
+body.dark .tk-tab-opt { color: #cbd5e1; }
+body.dark .tk-tab-opt:hover { background: #1e3a6e; }
+body.dark .tk-tab-opt.active { background: #1e3a6e; color: #93c5fd; }
+
+/* Ticket rows */
+.tk-list { padding: 0 4px; }
+
+.tk-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  cursor: pointer;
+  transition: background 0.12s;
+  gap: 12px;
+}
+.tk-row:last-child { border-bottom: none; }
+.tk-row:hover { background: #f8fafc; }
+body.dark .tk-row { border-bottom-color: #334155; }
+body.dark .tk-row:hover { background: #1a2744; }
+
+.tk-row-main { flex: 1; min-width: 0; }
+.tk-row-subject {
+  font-size: 14px;
+  font-weight: 600;
+  color: #2f4b85;
+  margin-bottom: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tk-row:hover .tk-row-subject { text-decoration: underline; }
+
+.tk-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: #64748b;
+  flex-wrap: wrap;
+}
+.tk-id { color: #64748b; }
+.tk-dot { color: #cbd5e1; }
+.tk-meta-icon { font-size: 13px; color: #94a3b8; }
+.tk-replies { color: #e74c3c; font-weight: 600; }
+
+.tk-row-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.tk-avatar {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: #2f4b85;
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.tk-status-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  text-align: center;
+  min-width: 58px;
+}
+.tk-status-closed { background: #f1f5f9; color: #64748b; }
+.tk-status-open   { background: #dcfce7; color: #166534; }
+.tk-status-hold   { background: #fef9c3; color: #854d0e; }
+
+.tk-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #94a3b8;
+  gap: 8px;
+}
+.tk-empty i { font-size: 40px; }
+
+.tk-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 14px;
+  border-top: 1px solid #f1f5f9;
+}
+body.dark .tk-pagination { border-top-color: #334155; }
+
+/* Views sidebar */
+.tk-sidebar {
+  background: white;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  padding: 18px 0;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+body.dark .tk-sidebar { background: #1e293b; border-color: #334155; }
+
+.tk-sidebar-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #2f4b85;
+  padding: 0 18px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  margin-bottom: 8px;
+}
+body.dark .tk-sidebar-title { border-bottom-color: #334155; color: #93c5fd; }
+
+.tk-views { display: flex; flex-direction: column; }
+
+.tk-view-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 18px;
+  font-size: 13px;
+  color: #475569;
+  cursor: pointer;
+  border-radius: 0;
+  transition: background 0.12s, color 0.12s;
+}
+.tk-view-item:hover { background: #f0f4ff; color: #2f4b85; }
+.tk-view-item.active { color: #2f4b85; font-weight: 700; background: #eff6ff; }
+body.dark .tk-view-item { color: #94a3b8; }
+body.dark .tk-view-item:hover { background: #1e3a6e; color: #93c5fd; }
+body.dark .tk-view-item.active { background: #1e3a6e; color: #93c5fd; }
+
+.tk-view-count { font-size: 12px; font-weight: 700; color: #2f4b85; }
+body.dark .tk-view-count { color: #93c5fd; }
+
+.tk-view-divider { height: 1px; background: #f1f5f9; margin: 6px 0; }
+body.dark .tk-view-divider { background: #334155; }
+
+/* ── Submit Ticket form ── */
+.tk-form-box {
+  background: white;
+  border-radius: 20px;
+  padding: 40px 48px;
+  width: 820px;
+  max-width: 95vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+}
+body.dark .tk-form-box { background: #1e293b; }
+
+.tk-form-title {
+  font-size: 26px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 24px;
+}
+body.dark .tk-form-title { color: #e2e8f0; }
+
+.tk-form-section-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #2f4b85;
+  margin: 20px 0 14px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e2e8f0;
+}
+body.dark .tk-form-section-label { color: #93c5fd; border-bottom-color: #334155; }
+
+.tk-form-group { margin-bottom: 16px; }
+.tk-form-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e3a6e;
+  margin-bottom: 6px;
+}
+body.dark .tk-form-label { color: #93c5fd; }
+.tk-required { color: #e74c3c; }
+
+.tk-form-input {
+  width: 100%;
+  padding: 12px 14px;
+  background: #f1f5f9;
+  border: 1.5px solid transparent;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #1e293b;
+  transition: border-color 0.15s, background 0.15s;
+  box-sizing: border-box;
+  outline: none;
+}
+.tk-form-input:focus { border-color: #2f4b85; background: white; }
+body.dark .tk-form-input { background: #0f172a; color: #e2e8f0; border-color: #334155; }
+body.dark .tk-form-input:focus { border-color: #3b82f6; background: #1e293b; }
+
+.tk-form-textarea {
+  width: 100%;
+  padding: 12px 14px;
+  background: #f1f5f9;
+  border: 1.5px solid transparent;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #1e293b;
+  resize: vertical;
+  font-family: inherit;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s, background 0.15s;
+  min-height: 140px;
+}
+.tk-form-textarea:focus { border-color: #2f4b85; background: white; }
+body.dark .tk-form-textarea { background: #0f172a; color: #e2e8f0; border-color: #334155; }
+body.dark .tk-form-textarea:focus { border-color: #3b82f6; background: #1e293b; }
+
+.tk-form-attach {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 20px 0;
+}
+.tk-attach-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #d97706;
+  cursor: pointer;
+}
+.tk-attach-label:hover { text-decoration: underline; }
+.tk-attach-hint { font-size: 13px; color: #94a3b8; }
+.tk-attach-name { font-size: 12px; color: #2f4b85; }
+
+.tk-form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+}
+body.dark .tk-form-actions { border-top-color: #334155; }

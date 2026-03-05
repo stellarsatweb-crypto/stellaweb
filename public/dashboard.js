@@ -2077,6 +2077,7 @@ async function lettersPasteFile() {
     const result = await res.json();
     if (!res.ok) { showToast("Paste failed: " + (result.error || "Unknown"), "error"); return; }
     showToast(`"${name}" pasted successfully.`, "success");
+    lettersClipboard = null;
     fetchLettersContent(); fetchLettersRecent();
   } catch { showToast("Network error.", "error"); }
   finally { btn.disabled = false; updateLettersPasteBtn(); }
@@ -2096,6 +2097,7 @@ async function lettersPasteFolder() {
     const result = await res.json();
     if (!res.ok) { showToast("Paste failed: " + (result.error || "Unknown"), "error"); return; }
     showToast(`Folder "${name}" pasted successfully.`, "success");
+    lettersClipboard = null;
     fetchLettersContent();
   } catch { showToast("Network error.", "error"); }
   finally { btn.disabled = false; updateLettersPasteBtn(); }
@@ -2173,7 +2175,11 @@ function bindLettersKebabs(container) {
 
       menu.style.cssText = `position:fixed;top:${top}px;left:${left}px;min-width:${menuW}px;z-index:9999;`;
 
-      setTimeout(() => document.addEventListener("click", closeAllLettersKebabs, { once: true }), 0);
+      setTimeout(() => {
+        document.addEventListener("click", closeAllLettersKebabs, { once: true });
+        document.addEventListener("scroll", closeAllLettersKebabs, { once: true, capture: true });
+        document.querySelector(".letters-main-card")?.addEventListener("scroll", closeAllLettersKebabs, { once: true });
+      }, 0);
     });
   });
 }

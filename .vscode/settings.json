@@ -6,8 +6,8 @@
             "server": "localhost",
             "port": 5432,
             "driver": "PostgreSQL",
-            "name": "postgresconn",
-            "database": "demo",
+            "name": "postgres",
+            "database": "stellarsat",
             "username": "postgres"
         },
         {
@@ -17,7 +17,7 @@
             "port": 5432,
             "driver": "PostgreSQL",
             "name": "postgres",
-            "database": "stellarsat",
+            "database": "demo",
             "username": "postgres"
         }
     ]
