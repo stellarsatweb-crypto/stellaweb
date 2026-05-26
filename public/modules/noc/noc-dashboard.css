@@ -1,0 +1,56 @@
+@import url("../../dashboard.css");
+
+/* Unified inbox search: keep it as one clean control, not a nested pill. */
+.ut-search-row {
+  padding: 10px 12px 0 !important;
+}
+
+.ut-search-wrap {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  width: 100% !important;
+  min-height: 44px !important;
+  padding: 0 14px !important;
+  border: 1px solid #d8e1eb !important;
+  border-radius: 12px !important;
+  background: #fff !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+}
+
+.ut-search-wrap i {
+  color: #94a3b8 !important;
+  font-size: 14px !important;
+  flex-shrink: 0 !important;
+}
+
+#utSearchInput.ut-search-input {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  width: 100% !important;
+  border: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  color: #334155 !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+
+#utSearchInput.ut-search-input::placeholder {
+  color: #94a3b8 !important;
+  opacity: 1 !important;
+}
+
+#utSearchInput.ut-search-input:focus,
+#utSearchInput.ut-search-input:focus-visible {
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}

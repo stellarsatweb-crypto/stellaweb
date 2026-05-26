@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard</title>
+  <script>
+    (() => {
+      let target = "/modules/noc/noc-dashboard.html";
+      try {
+        const user = JSON.parse(localStorage.getItem("user") || "{}");
+        const role = String(user.role || "").trim().toLowerCase();
+        target =
+          role === "admin" ? "/modules/admin/admin-dashboard.html" :
+          role === "executive" ? "/modules/executive/executive-dashboard.html" :
+          role === "finance" ? "/modules/finance/finance-dashboard.html" :
+          role === "bidder" ? "/modules/bidder/bidder-dashboard.html" :
+          "/modules/noc/noc-dashboard.html";
+      } catch {
+        target = "/modules/noc/noc-dashboard.html";
+      }
+      window.location.replace(target);
+    })();
+  </script>
+</head>
+<body>
+</body>
+</html>

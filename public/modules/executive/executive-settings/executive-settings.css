@@ -1,0 +1,47 @@
+@import url("../../../dashboard.css");
+
+body.executive-settings-page {
+  min-height: 100vh;
+  background: #f4f8fe;
+}
+
+body.dark.executive-settings-page {
+  background: #08111f;
+}
+
+body.executive-settings-page #mainContent {
+  width: 100%;
+}
+
+body.executive-settings-page .stg-navitem[aria-disabled="true"],
+body.executive-settings-page .stg-theme-pill[aria-disabled="true"],
+body.executive-settings-page .stg-outline-btn[aria-disabled="true"],
+body.executive-settings-page .stg-save-btn[aria-disabled="true"],
+body.executive-settings-page .stg-delete-btn[aria-disabled="true"] {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+body.executive-settings-page .toast-info {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1.5px solid #bfdbfe;
+}
+
+body.dark.executive-settings-page .toast-info {
+  background: #0b1b34;
+  color: #93c5fd;
+  border-color: #1e3a6e;
+}
+
+body.executive-settings-page .toast-warning {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1.5px solid #fde68a;
+}
+
+body.dark.executive-settings-page .toast-warning {
+  background: #251a04;
+  color: #fcd34d;
+  border-color: #78350f;
+}
